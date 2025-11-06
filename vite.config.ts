@@ -6,9 +6,8 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       server: {
-            host: '127.0.0.1',
-    port: 5173,
-    allowedHosts: ['maps.nielskrikke.com'],
+        port: 3000,
+        host: '0.0.0.0',
       },
       plugins: [react()],
       define: {
