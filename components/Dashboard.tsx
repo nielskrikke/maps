@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import { useAuth } from '../App';
 import { Map as MapType, Pin, PinType } from '../types';
@@ -41,6 +40,16 @@ const Dashboard: React.FC = () => {
     const [isPinTypeManagerOpen, setPinTypeManagerOpen] = useState(false);
     const [editingPin, setEditingPin] = useState<Partial<Pin> | null>(null);
 
+    useEffect(() => {
+        // This effect ensures that when the user changes (e.g., login/logout),
+        // the player view state is reset to the correct default for the new user's role.
+        // It depends on user.id so it doesn't wrongly reset when a DM has toggled
+        // the view and the user object reference changes for other reasons (like token refresh).
+        if (user) {
+            setIsPlayerView(user.profile.role === 'Player');
+        }
+    }, [user?.id]);
+
     const refreshData = useCallback(async () => {
         if (!user) return;
         setLoading(true);
@@ -64,9 +73,9 @@ const Dashboard: React.FC = () => {
 
     useEffect(() => {
         const fetchMapDetails = async () => {
-            if (selectedMap) {
+            if (selectedMap && user) {
                 const fetchPins = supabase.from('pins').select('*, pin_types(*)').eq('map_id', selectedMap.id);
-                const { data: pinsData, error: pinsError } = await (user?.profile.role === 'DM' && !isPlayerView ? fetchPins : fetchPins.eq('is_visible', true));
+                const { data: pinsData, error: pinsError } = await (user.profile.role === 'DM' && !isPlayerView ? fetchPins : fetchPins.eq('is_visible', true));
 
                 if (pinsData) setPins(pinsData as Pin[]); // Type assertion due to join
                 if (pinsError) console.error(pinsError);

@@ -82,62 +82,42 @@ const App: React.FC = () => {
   useEffect(() => {
     setLoading(true);
 
-    // Perform a single, explicit check for the session on initial load.
-    // This is more reliable than waiting for onAuthStateChange to fire.
-    supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
-      if (initialSession?.user) {
-        const { data: profile, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', initialSession.user.id)
-          .single();
-        
-        if (error && error.code !== 'PGRST116') {
-          console.error("Initial profile fetch error:", error);
-          setAuthError("Could not load your profile.");
-          setUser(null);
-        } else if (profile) {
-          setUser({ ...initialSession.user, profile });
-        }
-      }
-      setSession(initialSession);
-      
-      // The initial check is complete, we can now safely stop loading.
-      setLoading(false);
-    });
-
-    // Set up a listener for subsequent auth state changes (e.g., sign-in, sign-out).
-    // This will not manage the initial loading state.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      setSession(currentSession);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session);
       setAuthError(null);
 
       if (event === 'SIGNED_OUT') {
         setUser(null);
-      } else if (currentSession?.user) {
-         const { data: profile, error } = await supabase
+      } else if (session?.user) {
+        const { data: profile, error } = await supabase
           .from('users')
           .select('*')
-          .eq('id', currentSession.user.id)
+          .eq('id', session.user.id)
           .single();
 
-        if (error && error.code !== 'PGRST116') {
+        if (profile) {
+          setUser({ ...session.user, profile });
+        } else if (error && error.code !== 'PGRST116') {
           console.error("Auth listener profile fetch error:", error);
           setAuthError("Could not load your profile. Please try again.");
           setUser(null);
-        } else if (profile) {
-          setUser({ ...currentSession.user, profile });
         } else if (event === 'SIGNED_IN') {
-          // This path is for a brand new user signing in who doesn't have a profile yet.
-          const { profile: newProfile, error: createError } = await createAndFetchUserProfile(currentSession.user);
+          const { profile: newProfile, error: createError } = await createAndFetchUserProfile(session.user);
           if (newProfile) {
-            setUser({ ...currentSession.user, profile: newProfile });
+            setUser({ ...session.user, profile: newProfile });
           } else {
             setAuthError(createError);
             setUser(null);
           }
+        } else {
+          // Session exists, but no profile, and not a new sign-in. Inconsistent state.
+          setUser(null);
         }
+      } else {
+        setUser(null);
       }
+      
+      setLoading(false);
     });
 
     return () => {
