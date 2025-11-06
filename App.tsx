@@ -83,12 +83,15 @@ const App: React.FC = () => {
     setLoading(true);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      setAuthError(null);
+      try {
+        setSession(session);
+        setAuthError(null);
 
-      if (event === 'SIGNED_OUT') {
-        setUser(null);
-      } else if (session?.user) {
+        if (!session?.user) {
+          setUser(null);
+          return;
+        }
+        
         const { data: profile, error } = await supabase
           .from('users')
           .select('*')
@@ -101,23 +104,26 @@ const App: React.FC = () => {
           console.error("Auth listener profile fetch error:", error);
           setAuthError("Could not load your profile. Please try again.");
           setUser(null);
-        } else if (event === 'SIGNED_IN') {
+        } else {
+          // Profile not found, let's try to create it.
+          // This handles both new sign-ups and existing auth users without a profile.
           const { profile: newProfile, error: createError } = await createAndFetchUserProfile(session.user);
           if (newProfile) {
             setUser({ ...session.user, profile: newProfile });
           } else {
             setAuthError(createError);
             setUser(null);
+            // Sign out to clear the bad state
+            await supabase.auth.signOut();
           }
-        } else {
-          // Session exists, but no profile, and not a new sign-in. Inconsistent state.
-          setUser(null);
         }
-      } else {
+      } catch (e) {
+        console.error("Unhandled error in onAuthStateChange:", e);
+        setAuthError("An unexpected error occurred.");
         setUser(null);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
     return () => {
