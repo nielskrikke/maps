@@ -1,5 +1,5 @@
 {
-  "name": "D&D World-Building Map",
+  "name": "D&D Map tool",
   "description": "An interactive mapping application for D&D Dungeon Masters. Upload maps, add descriptive pins, and progressively reveal areas with a Fog of War feature for an immersive player experience.",
   "requestFramePermissions": []
 }
