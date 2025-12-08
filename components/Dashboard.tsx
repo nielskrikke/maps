@@ -5,7 +5,8 @@ import { supabase } from '../services/supabase';
 import Sidebar from './Sidebar';
 import MapViewer from './MapViewer';
 import PinDetails from './PinDetails';
-import { MapManagerModal, PinEditorModal, PinTypeManagerModal } from './Modals';
+import Wiki from './Wiki';
+import { MapManagerModal, PinEditorModal, PinTypeManagerModal, PlayerManagerModal } from './Modals';
 import { Icon } from './Icons';
 
 type AppContextType = {
@@ -13,7 +14,7 @@ type AppContextType = {
     pinTypes: PinType[];
     pins: Pin[];
     isPlayerView: boolean;
-    refreshData: () => Promise<void>;
+    refreshData: (silent?: boolean) => Promise<void>;
     setIsPlayerView: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
@@ -29,8 +30,14 @@ const Dashboard: React.FC = () => {
     const [maps, setMaps] = useState<MapType[]>([]);
     const [pinTypes, setPinTypes] = useState<PinType[]>([]);
     const [pins, setPins] = useState<Pin[]>([]);
+    
+    // View State
+    const [currentView, setCurrentView] = useState<'map' | 'wiki'>('map');
     const [selectedMap, setSelectedMap] = useState<MapType | null>(null);
     const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
+    
+    // Highlight State (for locating pins from Wiki)
+    const [highlightedPinId, setHighlightedPinId] = useState<string | null>(null);
     
     const [isPlayerView, setIsPlayerView] = useState(user?.profile.role === 'Player');
     const [loading, setLoading] = useState(true);
@@ -38,21 +45,18 @@ const Dashboard: React.FC = () => {
     // Modal states
     const [isMapManagerOpen, setMapManagerOpen] = useState(false);
     const [isPinTypeManagerOpen, setPinTypeManagerOpen] = useState(false);
+    const [isPlayerManagerOpen, setPlayerManagerOpen] = useState(false);
     const [editingPin, setEditingPin] = useState<Partial<Pin> | null>(null);
 
     useEffect(() => {
-        // This effect ensures that when the user changes (e.g., login/logout),
-        // the player view state is reset to the correct default for the new user's role.
-        // It depends on user.id so it doesn't wrongly reset when a DM has toggled
-        // the view and the user object reference changes for other reasons (like token refresh).
         if (user) {
             setIsPlayerView(user.profile.role === 'Player');
         }
     }, [user?.id]);
 
-    const refreshData = useCallback(async () => {
+    const refreshData = useCallback(async (silent = false) => {
         if (!user) return;
-        setLoading(true);
+        if (!silent) setLoading(true);
 
         const fetchMaps = supabase.from('maps').select('*');
         const { data: mapsData, error: mapsError } = await (user.profile.role === 'DM' ? fetchMaps : fetchMaps.eq('is_visible', true));
@@ -64,89 +68,105 @@ const Dashboard: React.FC = () => {
         if (mapsError) console.error("Error fetching maps", mapsError);
         if (pinTypesError) console.error("Error fetching pin types", pinTypesError);
         
-        setLoading(false);
-    }, [user]);
+        // Fetch ALL pins for the wiki search, but map viewer filters by selected map
+        const fetchPins = supabase.from('pins').select('*, pin_types(*)');
+        const { data: pinsData, error: pinsError } = await (user.profile.role === 'DM' && !isPlayerView ? fetchPins : fetchPins.eq('is_visible', true));
+        if (pinsData) setPins(pinsData as Pin[]);
+        
+        if (!silent) setLoading(false);
+    }, [user, isPlayerView]);
 
     useEffect(() => {
         refreshData();
     }, [refreshData]);
 
-    useEffect(() => {
-        const fetchMapDetails = async () => {
-            if (selectedMap && user) {
-                const fetchPins = supabase.from('pins').select('*, pin_types(*)').eq('map_id', selectedMap.id);
-                const { data: pinsData, error: pinsError } = await (user.profile.role === 'DM' && !isPlayerView ? fetchPins : fetchPins.eq('is_visible', true));
-
-                if (pinsData) setPins(pinsData as Pin[]); // Type assertion due to join
-                if (pinsError) console.error(pinsError);
-            } else {
-                setPins([]);
-            }
-        };
-        fetchMapDetails();
-    }, [selectedMap, user, isPlayerView]);
-
-
     const handleSelectMap = (map: MapType | null) => {
         setSelectedMap(map);
         setSelectedPin(null);
+        setHighlightedPinId(null);
+        setCurrentView('map'); // Switch to map view when selecting from sidebar
     };
 
     const handlePinSave = async () => {
         setEditingPin(null);
-        if (selectedMap) {
-            const { data } = await supabase.from('pins').select('*, pin_types(*)').eq('map_id', selectedMap.id);
-            if(data) setPins(data as Pin[]);
-        }
+        await refreshData(true);
     };
 
     if (loading) {
-        return <div className="flex h-screen w-full items-center justify-center"><Icon name="spinner" className="h-10 w-10 animate-spin text-primary-500" /></div>;
+        return <div className="flex h-screen w-full items-center justify-center bg-stone-950"><Icon name="spinner" className="h-10 w-10 animate-spin text-amber-500" /></div>;
     }
     
     return (
         <AppContext.Provider value={{ maps, pinTypes, pins, isPlayerView, refreshData, setIsPlayerView }}>
-            <div className="flex h-screen w-full flex-col md:flex-row overflow-hidden">
+            <div className="flex h-screen w-full flex-col md:flex-row overflow-hidden bg-stone-950 text-stone-200">
                 <Sidebar
                     selectedMap={selectedMap}
                     onSelectMap={handleSelectMap}
+                    currentView={currentView}
+                    onViewChange={setCurrentView}
                     onMapManagerOpen={() => setMapManagerOpen(true)}
                     onPinTypeManagerOpen={() => setPinTypeManagerOpen(true)}
+                    onPlayerManagerOpen={() => setPlayerManagerOpen(true)}
                 />
-                <main className="relative flex-1 bg-gray-200 dark:bg-gray-800">
-                    {selectedMap ? (
-                        <MapViewer
-                            map={selectedMap}
-                            onSelectPin={setSelectedPin}
-                            onAddPin={(coords) => setEditingPin({ map_id: selectedMap.id, x_coord: coords.x, y_coord: coords.y })}
-                        />
-                    ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center space-y-4">
-                            <Icon name="map" className="h-24 w-24 text-gray-400 dark:text-gray-500" />
-                            <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-300">Select a map to begin</h2>
-                            <p className="text-gray-500 dark:text-gray-400">Choose a map from the sidebar to view its details.</p>
-                            {user?.profile.role === 'DM' && (
-                                <button onClick={() => setMapManagerOpen(true)} className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-white shadow-md hover:bg-primary-700">
-                                    <Icon name="upload" className="h-5 w-5" /> Manage Maps
-                                </button>
+                <main className="relative flex-1 bg-stone-950 overflow-hidden">
+                    {currentView === 'map' ? (
+                        <>
+                            {selectedMap ? (
+                                <MapViewer
+                                    map={selectedMap}
+                                    onSelectPin={(pin) => {
+                                        setSelectedPin(pin);
+                                        setHighlightedPinId(null); // Clear highlight on user interaction
+                                    }}
+                                    onAddPin={(coords) => {
+                                        if (user?.profile.role === 'DM' && !isPlayerView) {
+                                            setEditingPin({ ...coords, map_id: selectedMap.id });
+                                            setHighlightedPinId(null);
+                                        }
+                                    }}
+                                    highlightedPinId={highlightedPinId}
+                                />
+                            ) : (
+                                <div className="flex h-full w-full items-center justify-center text-stone-500">
+                                    <div className="text-center">
+                                        <Icon name="map" className="mx-auto h-16 w-16 opacity-30 mb-4" />
+                                        <p className="text-lg font-medieval">Select a map to begin</p>
+                                    </div>
+                                </div>
                             )}
-                        </div>
+                            <PinDetails 
+                                pin={selectedPin} 
+                                onClose={() => setSelectedPin(null)} 
+                                onEdit={(pin) => setEditingPin(pin)}
+                                mapId={selectedMap?.id}
+                            />
+                        </>
+                    ) : (
+                        <Wiki 
+                            onSelectMap={(map) => handleSelectMap(map)}
+                            onLocatePin={(pin) => {
+                                const map = maps.find(m => m.id === pin.map_id);
+                                if(map) {
+                                    setSelectedMap(map);
+                                    setHighlightedPinId(pin.id); // Set the highlight
+                                    setSelectedPin(null); // Ensure detail view is closed
+                                    setCurrentView('map');
+                                }
+                            }}
+                        />
+                    )}
+
+                    {isMapManagerOpen && <MapManagerModal isOpen={isMapManagerOpen} onClose={() => setMapManagerOpen(false)} />}
+                    {isPinTypeManagerOpen && <PinTypeManagerModal isOpen={isPinTypeManagerOpen} onClose={() => setPinTypeManagerOpen(false)} />}
+                    {isPlayerManagerOpen && <PlayerManagerModal isOpen={isPlayerManagerOpen} onClose={() => setPlayerManagerOpen(false)} />}
+                    {editingPin && (
+                        <PinEditorModal 
+                            pinData={editingPin} 
+                            onClose={() => setEditingPin(null)} 
+                            onSave={handlePinSave} 
+                        />
                     )}
                 </main>
-                <PinDetails
-                    pin={selectedPin}
-                    onClose={() => setSelectedPin(null)}
-                    onEdit={(pinToEdit) => setEditingPin(pinToEdit)}
-                    mapId={selectedMap?.id}
-                />
-
-                {user?.profile.role === 'DM' && (
-                    <>
-                        <MapManagerModal isOpen={isMapManagerOpen} onClose={() => setMapManagerOpen(false)} />
-                        <PinTypeManagerModal isOpen={isPinTypeManagerOpen} onClose={() => setPinTypeManagerOpen(false)} />
-                        {editingPin && <PinEditorModal pinData={editingPin} onClose={() => setEditingPin(null)} onSave={handlePinSave} />}
-                    </>
-                )}
             </div>
         </AppContext.Provider>
     );

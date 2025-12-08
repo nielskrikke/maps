@@ -5,6 +5,7 @@ import { AppUser, UserProfile } from './types';
 import AuthScreen from './components/AuthScreen';
 import Dashboard from './components/Dashboard';
 import { Icon } from './components/Icons';
+import { ItemProvider } from './components/ItemProvider';
 
 type AuthContextType = {
   session: Session | null;
@@ -47,6 +48,7 @@ const createAndFetchUserProfile = async (authUser: User): Promise<{ profile: Use
         id: freshUser.id,
         username: usernameToInsert,
         role: roleToInsert,
+        password_hash: 'managed_by_supabase_auth' // Required by DB constraint
       })
       .select()
       .single();
@@ -133,15 +135,17 @@ const App: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <Icon name="spinner" className="h-12 w-12 animate-spin text-primary-500" />
+      <div className="flex h-screen w-full items-center justify-center bg-stone-950">
+        <Icon name="spinner" className="h-12 w-12 animate-spin text-amber-500" />
       </div>
     );
   }
 
   return (
     <AuthContext.Provider value={{ session, user, loading: false, signOut }}>
-      {user && session ? <Dashboard /> : <AuthScreen authError={authError} onAuthAttempt={handleAuthAttempt} />}
+      <ItemProvider>
+        {user && session ? <Dashboard /> : <AuthScreen authError={authError} onAuthAttempt={handleAuthAttempt} />}
+      </ItemProvider>
     </AuthContext.Provider>
   );
 };

@@ -9,9 +9,12 @@ interface MapViewerProps {
     map: MapType;
     onSelectPin: (pin: Pin) => void;
     onAddPin: (coords: { x: number; y: number }) => void;
+    highlightedPinId?: string | null;
 }
 
-const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin }) => {
+type InteractionMode = 'pan' | 'pin';
+
+const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, highlightedPinId }) => {
     const { pins, pinTypes, isPlayerView } = useAppContext();
     const { user } = useAuth();
     const containerRef = useRef<HTMLDivElement>(null);
@@ -21,6 +24,17 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin }) => 
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
     const [imgDimensions, setImgDimensions] = useState({ width: 0, height: 0 });
+    
+    // Default to 'pan' mode. Only DMs can switch to 'pin'.
+    const [interactionMode, setInteractionMode] = useState<InteractionMode>('pan');
+
+    // Defaults if map config is missing
+    const gridSize = map.grid_size || 50;
+    const pinSize = map.pin_scale || 50;
+    const showGrid = map.is_grid_visible || false;
+
+    const isDM = user?.profile.role === 'DM';
+    const canEdit = isDM && !isPlayerView;
 
     const getPinType = (pinTypeId: string) => pinTypes.find(pt => pt.id === pinTypeId);
 
@@ -40,6 +54,13 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin }) => 
         setViewState({ scale, x, y });
     }, [imgDimensions]);
 
+    // Ensure players are always in pan mode
+    useEffect(() => {
+        if (!canEdit) {
+            setInteractionMode('pan');
+        }
+    }, [canEdit]);
+
     useEffect(() => {
         const img = new Image();
         img.src = map.image_url;
@@ -48,10 +69,45 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin }) => 
         };
     }, [map.image_url]);
     
+    // Auto-center on highlighted pin when ID changes
     useEffect(() => {
-        resetView();
+        if (highlightedPinId && imgDimensions.width > 0 && containerRef.current) {
+            const pin = pins.find(p => p.id === highlightedPinId);
+            if (pin && pin.map_id === map.id) {
+                const container = containerRef.current.getBoundingClientRect();
+                const targetScale = Math.max(viewState.scale, 1); // Ensure we are zoomed in at least 1x
+                
+                const pinXPx = pin.x_coord * imgDimensions.width;
+                const pinYPx = pin.y_coord * imgDimensions.height;
+
+                // Center logic: (ContainerCenter) - (PinPos * Scale)
+                const newX = (container.width / 2) - (pinXPx * targetScale);
+                const newY = (container.height / 2) - (pinYPx * targetScale);
+
+                setViewState({ scale: targetScale, x: newX, y: newY });
+            }
+        } else if (!highlightedPinId && imgDimensions.width > 0) {
+            // Only reset view on initial load, not when highlight is cleared manually
+            if (viewState.scale === 1 && viewState.x === 0) resetView();
+        }
+    }, [highlightedPinId, imgDimensions, pins, map.id]); // Removed resetView dep to avoid loop, handled implicitly
+
+    // Initial reset view on image load
+    useEffect(() => {
+        if (imgDimensions.width > 0 && !highlightedPinId) {
+            resetView();
+        }
     }, [imgDimensions, resetView]);
     
+    // Zoom Helpers
+    const zoomIn = () => {
+        setViewState(prev => ({ ...prev, scale: Math.min(prev.scale * 1.2, 5) }));
+    };
+
+    const zoomOut = () => {
+        setViewState(prev => ({ ...prev, scale: Math.max(prev.scale / 1.2, 0.1) }));
+    };
+
     const handleWheel = (e: React.WheelEvent) => {
         e.preventDefault();
         const { deltaY, clientX, clientY } = e;
@@ -69,8 +125,7 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin }) => 
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {
-        // Allow adding pins with right click, pan with left click
-        if (e.button === 0) {
+        if (interactionMode === 'pan' || e.button === 1 || e.button === 2) {
             setIsPanning(true);
             setPanStart({ x: e.clientX - viewState.x, y: e.clientY - viewState.y });
         }
@@ -86,19 +141,43 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin }) => 
     };
 
     const handleMapClick = (e: React.MouseEvent) => {
-        if (user?.profile.role !== 'DM' || isPlayerView || isPanning) return;
-        if (e.target !== mapRef.current && e.target !== (mapRef.current?.firstChild as HTMLElement).firstChild) return;
+        if (!canEdit || isPanning || interactionMode !== 'pin') return;
+        
+        if (e.target !== mapRef.current && e.target !== (mapRef.current?.querySelector('img') as HTMLElement) && e.target !== (mapRef.current?.querySelector('.grid-overlay') as HTMLElement)) return;
 
         const rect = mapRef.current!.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / rect.width;
-        const y = (e.clientY - rect.top) / rect.height;
+        
+        let x = (e.clientX - rect.left) / rect.width;
+        let y = (e.clientY - rect.top) / rect.height;
+
+        if (showGrid && gridSize > 0 && imgDimensions.width > 0 && imgDimensions.height > 0) {
+            const originalX = x * imgDimensions.width;
+            const originalY = y * imgDimensions.height;
+            const col = Math.floor(originalX / gridSize);
+            const row = Math.floor(originalY / gridSize);
+            const centerX = (col * gridSize) + (gridSize / 2);
+            const centerY = (row * gridSize) + (gridSize / 2);
+            x = centerX / imgDimensions.width;
+            y = centerY / imgDimensions.height;
+        }
+        
         onAddPin({ x, y });
     };
+
+    let cursorStyle = 'default';
+    if (isPanning) {
+        cursorStyle = 'grabbing';
+    } else if (interactionMode === 'pan') {
+        cursorStyle = 'grab';
+    } else if (interactionMode === 'pin' && canEdit) {
+        cursorStyle = 'crosshair';
+    }
 
     return (
         <div 
             ref={containerRef}
-            className="h-full w-full overflow-hidden cursor-grab active:cursor-grabbing"
+            className="h-full w-full overflow-hidden bg-stone-950 relative"
+            style={{ cursor: cursorStyle }}
             onWheel={handleWheel}
             onMouseDown={handleMouseDown}
             onMouseUp={handleMouseUp}
@@ -112,38 +191,86 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin }) => 
                     transform: `translate(${viewState.x}px, ${viewState.y}px) scale(${viewState.scale})`,
                     width: `${imgDimensions.width}px`,
                     height: `${imgDimensions.height}px`,
-                    cursor: user?.profile.role === 'DM' && !isPlayerView ? 'crosshair' : 'grab',
                 }}
                 onClick={handleMapClick}
             >
-                <img src={map.image_url} alt={map.name} className="pointer-events-none w-full h-full" />
+                <img src={map.image_url} alt={map.name} className="pointer-events-none w-full h-full absolute top-0 left-0" />
                 
+                {showGrid && (
+                    <div 
+                        className="grid-overlay absolute inset-0 pointer-events-none opacity-30"
+                        style={{
+                            backgroundSize: `${gridSize}px ${gridSize}px`,
+                            backgroundImage: `
+                                linear-gradient(to right, rgba(255, 255, 255, 0.5) 1px, transparent 1px),
+                                linear-gradient(to bottom, rgba(255, 255, 255, 0.5) 1px, transparent 1px)
+                            `
+                        }}
+                    />
+                )}
+
+                {/* Pins */}
                 {pins.map(pin => {
+                    if (pin.map_id !== map.id) return null;
                     const pinType = getPinType(pin.pin_type_id);
+                    const isHighlighted = pin.id === highlightedPinId;
+
                     return (
                         <button
                             key={pin.id}
                             onClick={(e) => { e.stopPropagation(); onSelectPin(pin); }}
-                            className="absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center p-1 rounded-full transition-transform hover:scale-125 focus:outline-none focus:ring-2 focus:ring-white"
+                            className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-all focus:outline-none shadow-lg shadow-black/50 ${isHighlighted ? 'ring-4 ring-amber-500 ring-offset-2 ring-offset-black z-50 scale-125 animate-pulse' : 'hover:brightness-110 focus:ring-2 focus:ring-white hover:z-50'}`}
                             style={{ 
                                 left: `${pin.x_coord * 100}%`, 
                                 top: `${pin.y_coord * 100}%`,
                                 backgroundColor: pinType?.color || '#3B82F6',
-                                transform: `translate(-50%, -50%) scale(${1 / viewState.scale})`,
+                                width: `${pinSize}px`,
+                                height: `${pinSize}px`,
+                                fontSize: `${pinSize * 0.6}px`, 
+                                cursor: 'pointer'
                             }}
                             title={pin.title}
                         >
-                            <span style={{ fontSize: `${16 / viewState.scale}px` }}>
+                            <span className="drop-shadow-md leading-none select-none">
                                 {pinType?.emoji || '📍'}
                             </span>
                         </button>
                     );
                 })}
             </div>
-             <div className="absolute bottom-4 right-4 flex flex-col gap-2">
-                <button onClick={resetView} className="p-2 rounded-full bg-white/80 dark:bg-gray-800/80 shadow-lg hover:bg-white dark:hover:bg-gray-700">
-                    <Icon name="center" className="w-5 h-5 text-gray-700 dark:text-gray-300"/>
-                </button>
+
+            {/* Controls */}
+             <div className="absolute bottom-6 right-6 flex flex-col gap-4 z-10">
+                {canEdit && (
+                    <div className="flex flex-col gap-1 p-1 rounded-xl bg-stone-900/80 backdrop-blur-lg border border-stone-700/50 shadow-xl">
+                        <button 
+                            onClick={() => setInteractionMode('pan')} 
+                            className={`p-2 rounded-lg transition-colors ${interactionMode === 'pan' ? 'bg-amber-600 text-white' : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800'}`}
+                            title="Pan Mode"
+                        >
+                            <Icon name="hand" className="w-5 h-5"/>
+                        </button>
+                        <button 
+                            onClick={() => setInteractionMode('pin')} 
+                            className={`p-2 rounded-lg transition-colors ${interactionMode === 'pin' ? 'bg-amber-600 text-white' : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800'}`}
+                            title="Add Pin Mode"
+                        >
+                            <Icon name="pin" className="w-5 h-5"/>
+                        </button>
+                    </div>
+                )}
+
+                <div className="flex flex-col gap-1 p-1 rounded-xl bg-stone-900/80 backdrop-blur-lg border border-stone-700/50 shadow-xl">
+                    <button onClick={zoomIn} className="p-2 rounded-lg text-stone-300 hover:text-amber-500 hover:bg-stone-800 transition-colors" title="Zoom In">
+                        <Icon name="plus" className="w-5 h-5"/>
+                    </button>
+                    <button onClick={resetView} className="p-2 rounded-lg text-stone-300 hover:text-amber-500 hover:bg-stone-800 transition-colors" title="Center View">
+                        <Icon name="center" className="w-5 h-5"/>
+                    </button>
+                    <button onClick={zoomOut} className="p-2 rounded-lg text-stone-300 hover:text-amber-500 hover:bg-stone-800 transition-colors" title="Zoom Out">
+                        <Icon name="minus" className="w-5 h-5"/>
+                    </button>
+                </div>
              </div>
         </div>
     );

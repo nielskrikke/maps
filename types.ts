@@ -15,6 +15,10 @@ export type Map = {
   is_visible: boolean;
   created_by: string;
   created_at: string;
+  // New configuration fields
+  grid_size?: number; // Size of grid cells in pixels (relative to image)
+  pin_scale?: number; // Size of pins in pixels (relative to image)
+  is_grid_visible?: boolean; // Whether to show grid overlay
 };
 
 export type PinType = {
@@ -25,10 +29,38 @@ export type PinType = {
   created_by: string | null;
 };
 
+export type PinSectionType = 'text' | 'secret' | 'list' | 'statblock' | 'image' | 'inventory';
+
+export type InventoryItem = {
+    id: string; // unique ID within the inventory
+    name: string;
+    count: number;
+    desc?: string;
+    rarity?: string;
+    is_magic?: boolean;
+    cost?: string;
+    category?: string;
+};
+
+export type PinSection = {
+  id: string; // Unique ID for React rendering
+  type: PinSectionType;
+  title: string;
+  content: string; // Main text content or description
+  list_items?: string[]; // For 'list' type
+  stats?: { label: string; value: string }[]; // For 'statblock' type
+  image_url?: string; // For 'image' type
+  items?: InventoryItem[]; // For 'inventory' type
+};
+
 export type PinData = {
   description: string;
   images: string[];
-  sections: { title: string; content: string }[];
+  sections: PinSection[];
+  encounter_file?: {
+    name: string;
+    content: string;
+  } | null;
 };
 
 export type Pin = {
