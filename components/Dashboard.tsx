@@ -1,18 +1,20 @@
+
 import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import { useAuth } from '../App';
-import { Map as MapType, Pin, PinType } from '../types';
+import { Map as MapType, Pin, PinType, Character } from '../types';
 import { supabase } from '../services/supabase';
 import Sidebar from './Sidebar';
 import MapViewer from './MapViewer';
 import PinDetails from './PinDetails';
 import Wiki from './Wiki';
-import { MapManagerModal, PinEditorModal, PinTypeManagerModal, PlayerManagerModal } from './Modals';
+import { MapManagerModal, PinEditorModal, PinTypeManagerModal, PlayerManagerModal, CharacterManagerModal, DMToolsModal, UserSettingsModal } from './Modals';
 import { Icon } from './Icons';
 
 type AppContextType = {
     maps: MapType[];
     pinTypes: PinType[];
     pins: Pin[];
+    characters: Character[];
     isPlayerView: boolean;
     refreshData: (silent?: boolean) => Promise<void>;
     setIsPlayerView: React.Dispatch<React.SetStateAction<boolean>>;
@@ -26,16 +28,20 @@ export const useAppContext = () => {
 };
 
 const Dashboard: React.FC = () => {
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
     const [maps, setMaps] = useState<MapType[]>([]);
     const [pinTypes, setPinTypes] = useState<PinType[]>([]);
     const [pins, setPins] = useState<Pin[]>([]);
+    const [characters, setCharacters] = useState<Character[]>([]);
     
     // View State
     const [currentView, setCurrentView] = useState<'map' | 'wiki'>('map');
     const [selectedMap, setSelectedMap] = useState<MapType | null>(null);
     const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
     
+    // Wiki Target State (for deep linking)
+    const [wikiTarget, setWikiTarget] = useState<{ type: 'character' | 'map', id: string } | null>(null);
+
     // Highlight State (for locating pins from Wiki)
     const [highlightedPinId, setHighlightedPinId] = useState<string | null>(null);
     
@@ -43,9 +49,12 @@ const Dashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     // Modal states
+    const [isDMToolsOpen, setDMToolsOpen] = useState(false);
     const [isMapManagerOpen, setMapManagerOpen] = useState(false);
     const [isPinTypeManagerOpen, setPinTypeManagerOpen] = useState(false);
     const [isPlayerManagerOpen, setPlayerManagerOpen] = useState(false);
+    const [isCharacterManagerOpen, setCharacterManagerOpen] = useState(false);
+    const [isUserSettingsOpen, setUserSettingsOpen] = useState(false);
     const [editingPin, setEditingPin] = useState<Partial<Pin> | null>(null);
 
     useEffect(() => {
@@ -72,6 +81,14 @@ const Dashboard: React.FC = () => {
         const fetchPins = supabase.from('pins').select('*, pin_types(*)');
         const { data: pinsData, error: pinsError } = await (user.profile.role === 'DM' && !isPlayerView ? fetchPins : fetchPins.eq('is_visible', true));
         if (pinsData) setPins(pinsData as Pin[]);
+
+        // Fetch Characters
+        const { data: charData, error: charError } = await supabase.from('characters').select('*');
+        if (charData) setCharacters(charData as Character[]);
+        if (charError) {
+             // Swallow error if table doesn't exist yet to prevent app crash on older DBs
+             if(charError.code !== '42P01') console.error("Error fetching characters", charError);
+        }
         
         if (!silent) setLoading(false);
     }, [user, isPlayerView]);
@@ -91,22 +108,27 @@ const Dashboard: React.FC = () => {
         setEditingPin(null);
         await refreshData(true);
     };
+    
+    const handleOpenWikiCharacter = (charId: string) => {
+        setWikiTarget({ type: 'character', id: charId });
+        setCurrentView('wiki');
+        setSelectedPin(null); // Close pin details
+    };
 
     if (loading) {
         return <div className="flex h-screen w-full items-center justify-center bg-stone-950"><Icon name="spinner" className="h-10 w-10 animate-spin text-amber-500" /></div>;
     }
     
     return (
-        <AppContext.Provider value={{ maps, pinTypes, pins, isPlayerView, refreshData, setIsPlayerView }}>
+        <AppContext.Provider value={{ maps, pinTypes, pins, characters, isPlayerView, refreshData, setIsPlayerView }}>
             <div className="flex h-screen w-full flex-col md:flex-row overflow-hidden bg-stone-950 text-stone-200">
                 <Sidebar
                     selectedMap={selectedMap}
                     onSelectMap={handleSelectMap}
                     currentView={currentView}
                     onViewChange={setCurrentView}
-                    onMapManagerOpen={() => setMapManagerOpen(true)}
-                    onPinTypeManagerOpen={() => setPinTypeManagerOpen(true)}
-                    onPlayerManagerOpen={() => setPlayerManagerOpen(true)}
+                    onDMToolsOpen={() => setDMToolsOpen(true)}
+                    onUserSettingsOpen={() => setUserSettingsOpen(true)}
                 />
                 <main className="relative flex-1 bg-stone-950 overflow-hidden">
                     {currentView === 'map' ? (
@@ -120,7 +142,7 @@ const Dashboard: React.FC = () => {
                                     }}
                                     onAddPin={(coords) => {
                                         if (user?.profile.role === 'DM' && !isPlayerView) {
-                                            setEditingPin({ ...coords, map_id: selectedMap.id });
+                                            setEditingPin({ x_coord: coords.x, y_coord: coords.y, map_id: selectedMap.id });
                                             setHighlightedPinId(null);
                                         }
                                     }}
@@ -139,10 +161,12 @@ const Dashboard: React.FC = () => {
                                 onClose={() => setSelectedPin(null)} 
                                 onEdit={(pin) => setEditingPin(pin)}
                                 mapId={selectedMap?.id}
+                                onOpenWiki={handleOpenWikiCharacter}
                             />
                         </>
                     ) : (
                         <Wiki 
+                            target={wikiTarget}
                             onSelectMap={(map) => handleSelectMap(map)}
                             onLocatePin={(pin) => {
                                 const map = maps.find(m => m.id === pin.map_id);
@@ -156,9 +180,23 @@ const Dashboard: React.FC = () => {
                         />
                     )}
 
+                    {isDMToolsOpen && (
+                        <DMToolsModal 
+                            isOpen={isDMToolsOpen}
+                            onClose={() => setDMToolsOpen(false)}
+                            onMapManagerOpen={() => setMapManagerOpen(true)}
+                            onCharacterManagerOpen={() => setCharacterManagerOpen(true)}
+                            onPinTypeManagerOpen={() => setPinTypeManagerOpen(true)}
+                            onPlayerManagerOpen={() => setPlayerManagerOpen(true)}
+                            onSignOut={() => signOut()}
+                        />
+                    )}
+
                     {isMapManagerOpen && <MapManagerModal isOpen={isMapManagerOpen} onClose={() => setMapManagerOpen(false)} />}
                     {isPinTypeManagerOpen && <PinTypeManagerModal isOpen={isPinTypeManagerOpen} onClose={() => setPinTypeManagerOpen(false)} />}
                     {isPlayerManagerOpen && <PlayerManagerModal isOpen={isPlayerManagerOpen} onClose={() => setPlayerManagerOpen(false)} />}
+                    {isCharacterManagerOpen && <CharacterManagerModal isOpen={isCharacterManagerOpen} onClose={() => setCharacterManagerOpen(false)} />}
+                    {isUserSettingsOpen && <UserSettingsModal isOpen={isUserSettingsOpen} onClose={() => setUserSettingsOpen(false)} />}
                     {editingPin && (
                         <PinEditorModal 
                             pinData={editingPin} 

@@ -15,7 +15,7 @@ interface MapViewerProps {
 type InteractionMode = 'pan' | 'pin';
 
 const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, highlightedPinId }) => {
-    const { pins, pinTypes, isPlayerView } = useAppContext();
+    const { pins, pinTypes, isPlayerView, characters } = useAppContext();
     const { user } = useAuth();
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<HTMLDivElement>(null);
@@ -24,6 +24,7 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, highl
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
     const [imgDimensions, setImgDimensions] = useState({ width: 0, height: 0 });
+    const [hoveredPinId, setHoveredPinId] = useState<string | null>(null);
     
     // Default to 'pan' mode. Only DMs can switch to 'pin'.
     const [interactionMode, setInteractionMode] = useState<InteractionMode>('pan');
@@ -90,7 +91,7 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, highl
             // Only reset view on initial load, not when highlight is cleared manually
             if (viewState.scale === 1 && viewState.x === 0) resetView();
         }
-    }, [highlightedPinId, imgDimensions, pins, map.id]); // Removed resetView dep to avoid loop, handled implicitly
+    }, [highlightedPinId, imgDimensions, pins, map.id]);
 
     // Initial reset view on image load
     useEffect(() => {
@@ -219,6 +220,8 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, highl
                         <button
                             key={pin.id}
                             onClick={(e) => { e.stopPropagation(); onSelectPin(pin); }}
+                            onMouseEnter={() => setHoveredPinId(pin.id)}
+                            onMouseLeave={() => setHoveredPinId(null)}
                             className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-all focus:outline-none shadow-lg shadow-black/50 ${isHighlighted ? 'ring-4 ring-amber-500 ring-offset-2 ring-offset-black z-50 scale-125 animate-pulse' : 'hover:brightness-110 focus:ring-2 focus:ring-white hover:z-50'}`}
                             style={{ 
                                 left: `${pin.x_coord * 100}%`, 
@@ -237,6 +240,57 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, highl
                         </button>
                     );
                 })}
+
+                {/* Hover Preview Tooltip */}
+                {hoveredPinId && (() => {
+                    const pin = pins.find(p => p.id === hoveredPinId);
+                    if (!pin || pin.map_id !== map.id) return null;
+                    const pinType = getPinType(pin.pin_type_id);
+                    const charsHere = characters.filter(c => c.current_pin_id === pin.id && ((isDM && !isPlayerView) || c.is_visible));
+
+                    return (
+                        <div
+                            className="absolute pointer-events-none z-[100] flex flex-col items-center"
+                            style={{
+                                left: `${pin.x_coord * 100}%`,
+                                top: `${pin.y_coord * 100}%`,
+                                // Inverse scaling logic:
+                                // 1. Center transform origin (bottom center)
+                                // 2. Translate up to clear pin (-pinSize/2 - 10px spacing)
+                                // 3. Inverse scale (1/viewState.scale) to keep constant visual size
+                                transform: `translate(-50%, -100%) translateY(${-pinSize/2 - 12}px) scale(${1 / viewState.scale})`,
+                                transformOrigin: 'bottom center',
+                            }}
+                        >
+                            <div className="bg-stone-900/95 backdrop-blur-xl border border-amber-500/30 p-4 rounded-xl shadow-2xl flex flex-col items-center gap-2 min-w-[160px] animate-modal-in">
+                                <div className="text-center">
+                                    <h3 className="font-medieval text-amber-500 text-xl leading-none whitespace-nowrap drop-shadow-md">{pin.title}</h3>
+                                    <span className="text-[10px] uppercase text-stone-500 font-bold tracking-widest mt-1 block">{pinType?.name}</span>
+                                </div>
+                                
+                                {charsHere.length > 0 && (
+                                    <div className="flex items-center justify-center -space-x-2 pt-2 pb-1">
+                                        {charsHere.slice(0, 5).map(c => (
+                                            <div key={c.id} className="w-8 h-8 rounded-full border-2 border-stone-800 bg-stone-900 overflow-hidden relative z-0 shadow-sm">
+                                                {c.image_url ? 
+                                                    <img src={c.image_url} className="w-full h-full object-cover" alt={c.name} /> : 
+                                                    <div className="w-full h-full flex items-center justify-center text-xs text-stone-500 font-bold">{c.name[0]}</div>
+                                                }
+                                            </div>
+                                        ))}
+                                        {charsHere.length > 5 && (
+                                            <div className="w-8 h-8 rounded-full border-2 border-stone-800 bg-stone-800 flex items-center justify-center text-[10px] text-stone-400 font-bold z-10 shadow-sm">
+                                                +{charsHere.length - 5}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            {/* Arrow Pointer */}
+                            <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-amber-500/30 translate-y-[-1px]" />
+                        </div>
+                    );
+                })()}
             </div>
 
             {/* Controls */}

@@ -5,7 +5,10 @@ export type UserProfile = {
   id: string;
   username: string;
   role: 'DM' | 'Player';
+  image_url?: string;
 };
+
+export type MapTypeEnum = 'world' | 'region' | 'city' | 'dungeon' | 'battlemap';
 
 export type Map = {
   id: string;
@@ -19,6 +22,7 @@ export type Map = {
   grid_size?: number; // Size of grid cells in pixels (relative to image)
   pin_scale?: number; // Size of pins in pixels (relative to image)
   is_grid_visible?: boolean; // Whether to show grid overlay
+  map_type?: MapTypeEnum; // New field for map classification
 };
 
 export type PinType = {
@@ -78,9 +82,37 @@ export type Pin = {
   pin_types: PinType | null; // For joined data
 };
 
+export type CharacterRelationship = {
+  targetId: string;
+  type: string; // e.g., "Sibling", "Rival", "Ally"
+  notes?: string;
+};
+
+export type Character = {
+  id: string;
+  name: string;
+  role_details: {
+    race: string;
+    class: string;
+    level: number;
+    alignment: string;
+  };
+  backstory: string;
+  gm_notes: string;
+  image_url: string | null;
+  is_npc: boolean;
+  is_visible: boolean; // New visibility toggle
+  current_pin_id: string | null;
+  relationships: CharacterRelationship[];
+  sheet_url?: string;     // External link
+  character_json?: any;   // Stored JSON object
+  created_by: string;
+};
+
 export type Comment = {
   id: string;
-  pin_id: string;
+  pin_id: string | null;      // Now nullable
+  character_id: string | null; // New field
   user_id: string;
   text: string;
   is_private: boolean;

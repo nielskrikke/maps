@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Pin, Comment, PinSection } from '../types';
+import { Pin, Comment, PinSection, Character } from '../types';
 import { useAuth } from '../App';
 import { useAppContext } from './Dashboard';
 import { supabase } from '../services/supabase';
@@ -11,17 +11,25 @@ interface PinDetailsProps {
     onClose: () => void;
     onEdit: (pin: Pin) => void;
     mapId: string | undefined;
+    onOpenWiki?: (characterId: string) => void;
 }
 
-const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId }) => {
+const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, onOpenWiki }) => {
     const { user } = useAuth();
-    const { isPlayerView, maps } = useAppContext();
+    const { isPlayerView, maps, characters, refreshData } = useAppContext();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [isPrivateComment, setIsPrivateComment] = useState(false);
     
     // For expanding inventory items to show description
     const [expandedItem, setExpandedItem] = useState<string | null>(null);
+
+    // Character summoning state
+    const [isSummoning, setIsSummoning] = useState(false);
+    const [viewingCharacter, setViewingCharacter] = useState<Character | null>(null);
+
+    // Derived: Characters present at this pin
+    const presentCharacters = pin ? characters.filter(c => c.current_pin_id === pin.id) : [];
 
     useEffect(() => {
         const fetchComments = async () => {
@@ -62,6 +70,14 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId }) 
         setIsPrivateComment(false);
     };
 
+    const handleMoveCharacter = async (charId: string, targetPinId: string | null) => {
+        const { error } = await supabase.from('characters').update({ current_pin_id: targetPinId }).eq('id', charId);
+        if(!error) {
+            await refreshData(true);
+            setIsSummoning(false);
+        }
+    };
+
     const handleDownloadEncounter = () => {
         if (!pin?.data.encounter_file) return;
         const blob = new Blob([pin.data.encounter_file.content], { type: 'application/json' });
@@ -74,6 +90,21 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId }) 
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     };
+
+    const handleDownloadCharJson = (char: Character) => {
+        if (!char.character_json) return;
+        const blob = new Blob([JSON.stringify(char.character_json, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${char.name.replace(/\s+/g, '_').toLowerCase()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const getCharacterName = (id: string) => characters.find(c => c.id === id)?.name || "Unknown";
 
     const renderSection = (section: PinSection, index: number) => {
         // Render based on type
@@ -215,11 +246,141 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId }) 
                     </button>
                 </div>
 
-                {isDM && !isPlayerView && (
-                    <div className="mt-4 flex gap-2">
-                        <button onClick={() => onEdit(pin)} className="flex-1 rounded-xl bg-amber-600/20 text-amber-500 border border-amber-600/30 px-3 py-2 text-sm hover:bg-amber-600 hover:text-white transition-all">Edit Pin</button>
-                    </div>
-                )}
+                {/* Character & Edit Controls */}
+                <div className="mt-4 flex flex-col gap-4">
+                    {/* Character Presence Section */}
+                    {(presentCharacters.length > 0 || (isDM && !isPlayerView)) && (
+                        <div className="bg-stone-800/30 rounded-xl p-3 border border-stone-700/30">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-xs font-bold uppercase text-stone-400 flex items-center gap-2">
+                                    <Icon name="user" className="w-3 h-3"/> Characters Present
+                                </h3>
+                                {isDM && !isPlayerView && !isSummoning && (
+                                    <button onClick={() => setIsSummoning(true)} className="text-xs text-amber-500 hover:text-amber-400">+ Summon</button>
+                                )}
+                            </div>
+                            
+                            {isSummoning && (
+                                <div className="mb-3 bg-stone-900 rounded-lg border border-amber-500/30 p-2 animate-modal-in">
+                                    <input autoFocus type="text" placeholder="Search characters..." className="w-full bg-transparent text-sm border-b border-stone-700 pb-1 mb-2 focus:outline-none focus:border-amber-500" />
+                                    <div className="max-h-32 overflow-y-auto custom-scrollbar space-y-1">
+                                        {characters.filter(c => c.current_pin_id !== pin.id).map(c => (
+                                            <button 
+                                                key={c.id} 
+                                                onClick={() => handleMoveCharacter(c.id, pin.id)}
+                                                className="w-full text-left flex items-center gap-2 px-2 py-1 hover:bg-stone-800 rounded text-sm text-stone-300"
+                                            >
+                                                <div className="w-4 h-4 rounded-full bg-stone-700 overflow-hidden">{c.image_url && <img src={c.image_url} className="w-full h-full object-cover"/>}</div>
+                                                {c.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button onClick={() => setIsSummoning(false)} className="w-full text-center text-xs text-stone-500 mt-2 hover:text-stone-300">Cancel</button>
+                                </div>
+                            )}
+
+                            <div className="flex flex-wrap gap-2">
+                                {presentCharacters.map(char => (
+                                    <div key={char.id} className="relative group">
+                                        <button 
+                                            onClick={() => setViewingCharacter(char)}
+                                            className="w-10 h-10 rounded-full bg-stone-700 border-2 border-stone-600 hover:border-amber-500 overflow-hidden transition-all relative z-10"
+                                            title={char.name}
+                                        >
+                                            {char.image_url ? (
+                                                <img src={char.image_url} alt={char.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="flex items-center justify-center w-full h-full text-xs font-bold">{char.name.charAt(0)}</div>
+                                            )}
+                                        </button>
+                                        {isDM && !isPlayerView && (
+                                            <button 
+                                                onClick={() => handleMoveCharacter(char.id, null)}
+                                                className="absolute -top-1 -right-1 z-20 bg-stone-900 text-stone-500 hover:text-red-500 rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                title="Remove from location"
+                                            >
+                                                &times;
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                                {presentCharacters.length === 0 && !isSummoning && <span className="text-xs text-stone-600 italic">No one is here.</span>}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* View Character Mini-Modal (Overlay inside Sidebar) */}
+                    {viewingCharacter && (
+                        <div className="bg-stone-800 border border-amber-900/30 rounded-xl p-4 animate-modal-in relative">
+                            <button onClick={() => setViewingCharacter(null)} className="absolute top-2 right-2 text-stone-500 hover:text-stone-300"><Icon name="close" className="w-4 h-4"/></button>
+                            <div className="flex gap-3 mb-3">
+                                <div className="w-16 h-16 rounded-lg bg-stone-900 overflow-hidden border border-stone-600 flex-shrink-0">
+                                    {viewingCharacter.image_url && <img src={viewingCharacter.image_url} className="w-full h-full object-cover"/>}
+                                </div>
+                                <div>
+                                    <h3 className="font-medieval text-lg text-amber-500">{viewingCharacter.name}</h3>
+                                    <p className="text-xs text-stone-400">{viewingCharacter.role_details?.race} {!isPlayerView && viewingCharacter.role_details?.class}</p>
+                                    
+                                    {!isPlayerView && (
+                                        <p className="text-xs text-stone-500">Level {viewingCharacter.role_details?.level} • {viewingCharacter.role_details?.alignment}</p>
+                                    )}
+                                    
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {!isPlayerView && viewingCharacter.sheet_url && (
+                                            <a href={viewingCharacter.sheet_url} target="_blank" rel="noopener noreferrer" className="p-1 rounded bg-stone-700 hover:text-white text-stone-300 text-xs flex items-center gap-1">
+                                                <Icon name="external" className="w-3 h-3" /> Sheet
+                                            </a>
+                                        )}
+                                        {!isPlayerView && viewingCharacter.character_json && isDM && (
+                                            <button onClick={() => handleDownloadCharJson(viewingCharacter)} className="p-1 rounded bg-stone-700 hover:text-white text-stone-300 text-xs flex items-center gap-1">
+                                                <Icon name="download" className="w-3 h-3" /> JSON
+                                            </button>
+                                        )}
+                                        {onOpenWiki && (
+                                            <button onClick={() => onOpenWiki(viewingCharacter.id)} className="p-1 rounded bg-amber-900/40 text-amber-500 hover:text-amber-400 hover:bg-amber-900/60 text-xs flex items-center gap-1 border border-amber-900/50">
+                                                <Icon name="book" className="w-3 h-3" /> Open in Wiki
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="text-sm text-stone-300 max-h-32 overflow-y-auto custom-scrollbar whitespace-pre-wrap mb-2">
+                                {viewingCharacter.backstory || "No backstory."}
+                            </div>
+
+                            {/* Relationships Section in Mini Sheet */}
+                            {viewingCharacter.relationships && viewingCharacter.relationships.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-stone-700/50">
+                                    <p className="text-xs text-stone-500 font-bold mb-1 uppercase">Connections</p>
+                                    <div className="space-y-1">
+                                        {viewingCharacter.relationships.map((rel, i) => (
+                                            <div key={i} className="text-xs flex items-start gap-1">
+                                                <span className="text-amber-500 font-bold">•</span>
+                                                <span className="text-stone-300">
+                                                    <span className="font-medium text-stone-200">{getCharacterName(rel.targetId)}</span>
+                                                    <span className="text-stone-500"> ({rel.type})</span>
+                                                    {rel.notes && <span className="text-stone-500 block pl-2 italic">"{rel.notes}"</span>}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {isDM && !isPlayerView && viewingCharacter.gm_notes && (
+                                <div className="mt-2 pt-2 border-t border-red-900/30">
+                                    <p className="text-xs text-red-400 font-bold mb-1">GM Notes:</p>
+                                    <p className="text-xs text-red-300/80">{viewingCharacter.gm_notes}</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {isDM && !isPlayerView && (
+                        <button onClick={() => onEdit(pin)} className="w-full rounded-xl bg-amber-600/20 text-amber-500 border border-amber-600/30 px-3 py-2 text-sm hover:bg-amber-600 hover:text-white transition-all">Edit Pin Details</button>
+                    )}
+                </div>
 
                 <div className="mt-6 flex-1 space-y-6 overflow-y-auto custom-scrollbar pr-2">
                     {isDM && !isPlayerView && pin.data.encounter_file && (

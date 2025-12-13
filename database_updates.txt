@@ -1,0 +1,23 @@
+
+-- 1. Add image_url column to users table
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS image_url text;
+
+-- 2. Drop existing policy that restricts updates to self only (if it conflicts)
+DROP POLICY IF EXISTS "Enable update for users based on email" ON public.users;
+
+-- 3. Create a new policy that allows DMs to update ANY user, but regular players only their own
+CREATE POLICY "Enable update for DMs and Self" ON public.users
+FOR UPDATE
+USING (
+  -- User is editing themselves
+  auth.uid() = id
+  OR 
+  -- User is a DM (checking the role of the person performing the action)
+  EXISTS (
+    SELECT 1 FROM public.users 
+    WHERE id = auth.uid() AND role = 'DM'
+  )
+);
+
+-- 4. Ensure Select policy exists (DMs read all, Players read all - usually fine for profiles)
+CREATE POLICY "Enable read access for all users" ON public.users FOR SELECT USING (true);
