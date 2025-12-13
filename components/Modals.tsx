@@ -556,8 +556,8 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
                         
                         <div className="bg-stone-800/30 p-3 rounded-xl border border-stone-700/30">
                              <div className="flex items-center gap-3 mb-2">
-                                <label className="cursor-pointer bg-stone-700 hover:bg-stone-600 px-3 py-1.5 rounded text-xs text-stone-200 font-bold transition-colors">
-                                    Upload Image
+                                <label className={`cursor-pointer px-3 py-1.5 rounded text-xs text-stone-200 font-bold transition-colors ${isEditing ? 'bg-amber-700 hover:bg-amber-600' : 'bg-stone-700 hover:bg-stone-600'}`}>
+                                    {isEditing ? 'Replace Image' : 'Upload Image'}
                                     <input type="file" className="hidden" accept="image/*" onChange={e => {
                                         if (e.target.files?.[0]) { setImageFile(e.target.files[0]); setImageUrl(''); }
                                     }} />
@@ -568,6 +568,9 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
                             {(imageUrl || (imageFile && URL.createObjectURL(imageFile))) && (
                                 <img src={imageUrl || (imageFile ? URL.createObjectURL(imageFile) : '')} className="h-32 w-auto object-cover rounded border border-stone-600" alt="Preview" />
                             )}
+                             {isEditing && (
+                                <p className="text-[10px] text-stone-500 mt-2 italic">Note: Replacing the image will keep all existing pins in their relative positions. Ensure the new image has the same aspect ratio for best results.</p>
+                             )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -613,369 +616,98 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
     );
 };
 
+// --- PIN TYPE MANAGER MODAL ---
 interface PinTypeManagerModalProps { isOpen: boolean; onClose: () => void; }
 export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen, onClose }) => {
     const { pinTypes, refreshData } = useAppContext();
     const [editingType, setEditingType] = useState<Partial<PinType> | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    
     const [name, setName] = useState('');
     const [emoji, setEmoji] = useState('📍');
-    const [color, setColor] = useState('#EF4444');
+    const [color, setColor] = useState('#ffffff');
     const [loading, setLoading] = useState(false);
 
-    const resetForm = () => { setEditingType(null); setName(''); setEmoji('📍'); setColor('#EF4444'); };
+    const resetForm = () => {
+        setEditingType(null); setIsEditing(false);
+        setName(''); setEmoji('📍'); setColor('#ffffff');
+    };
 
     const handleEdit = (pt: PinType) => {
-        setEditingType(pt); setName(pt.name); setEmoji(pt.emoji || '📍'); setColor(pt.color);
+        setEditingType(pt); setIsEditing(true);
+        setName(pt.name); setEmoji(pt.emoji || '📍'); setColor(pt.color);
     };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         const payload = { name, emoji, color };
-        if (editingType?.id) {
+        if (isEditing && editingType?.id) {
             await supabase.from('pin_types').update(payload).eq('id', editingType.id);
         } else {
             await supabase.from('pin_types').insert(payload);
         }
         await refreshData(true);
-        resetForm();
         setLoading(false);
+        resetForm();
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Delete this pin type?')) return;
+        if(!confirm("Delete this pin type? Pins using it may break or disappear.")) return;
+        setLoading(true);
         await supabase.from('pin_types').delete().eq('id', id);
         await refreshData(true);
+        setLoading(false);
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Manage Pin Types">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border-r border-stone-800 pr-4 space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar">
-                     <button onClick={resetForm} className="w-full text-center bg-stone-800 py-2 rounded-xl text-stone-300 text-sm font-bold mb-2 hover:bg-stone-700">+ New Type</button>
-                    {pinTypes.map(pt => (
-                        <div key={pt.id} className="flex items-center justify-between p-2 rounded-lg bg-stone-900/40 border border-stone-800">
-                            <div className="flex items-center gap-2">
-                                <span className="w-6 h-6 flex items-center justify-center rounded-full text-xs" style={{backgroundColor: pt.color}}>{pt.emoji}</span>
-                                <span className="text-sm text-stone-300">{pt.name}</span>
-                            </div>
-                            <div className="flex gap-1">
-                                <button onClick={() => handleEdit(pt)} className="p-1 hover:text-amber-500"><Icon name="pencil" className="w-4 h-4 text-stone-600"/></button>
-                                <button onClick={() => handleDelete(pt.id)} className="p-1 hover:text-red-500"><Icon name="trash" className="w-4 h-4 text-stone-600"/></button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <form onSubmit={handleSave} className="space-y-4">
-                    <h3 className="text-sm font-bold text-stone-400 uppercase">{editingType ? 'Edit Type' : 'New Type'}</h3>
-                    <input type="text" placeholder="Type Name" value={name} onChange={e => setName(e.target.value)} required className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-4 py-3 text-stone-200" />
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                             <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Emoji</label>
-                             <input type="text" value={emoji} onChange={e => setEmoji(e.target.value)} className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-4 py-3 text-center text-xl" maxLength={2} />
-                        </div>
-                        <div className="flex-1">
-                             <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Color</label>
-                             <input type="color" value={color} onChange={e => setColor(e.target.value)} className="w-full h-[50px] rounded-xl border border-stone-600/50 bg-stone-800/40 cursor-pointer" />
-                        </div>
-                    </div>
-                    <button type="submit" disabled={loading} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all disabled:opacity-50">
-                        {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin mx-auto"/> : 'Save Type'}
+        <Modal isOpen={isOpen} onClose={onClose} title="Manage Pin Types" maxWidthClass="max-w-4xl">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-1 border-r border-stone-800 pr-4 space-y-4">
+                     <button onClick={resetForm} className="w-full flex items-center justify-center space-x-2 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold py-2 px-4 rounded-xl transition-all border border-stone-700">
+                        <Icon name="plus" className="h-4 w-4" />
+                        <span>New Type</span>
                     </button>
-                </form>
-            </div>
-        </Modal>
-    );
-};
-
-// --- PIN EDITOR MODAL ---
-interface PinEditorModalProps {
-    pinData: Partial<Pin>;
-    onClose: () => void;
-    onSave: () => Promise<void>;
-}
-export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose, onSave }) => {
-    const { user } = useAuth();
-    const { maps, pinTypes } = useAppContext();
-    const { items: apiItems } = useItems(); // For inventory search
-
-    const [title, setTitle] = useState(pinData.title || '');
-    const [pinTypeId, setPinTypeId] = useState(pinData.pin_type_id || (pinTypes[0]?.id || ''));
-    const [linkedMapId, setLinkedMapId] = useState(pinData.linked_map_id || '');
-    const [isVisible, setIsVisible] = useState(pinData.is_visible ?? true);
-    const [description, setDescription] = useState(pinData.data?.description || '');
-    const [sections, setSections] = useState<PinSection[]>(pinData.data?.sections || []);
-    const [encounterFile, setEncounterFile] = useState<{name: string, content: string} | null>(pinData.data?.encounter_file || null);
-    
-    const [loading, setLoading] = useState(false);
-
-    // Section editing state
-    const addSection = (type: PinSectionType) => {
-        setSections([...sections, {
-            id: Date.now().toString(),
-            type,
-            title: type.charAt(0).toUpperCase() + type.slice(1),
-            content: '',
-            list_items: [],
-            stats: [],
-            items: []
-        }]);
-    };
-    
-    const removeSection = (index: number) => {
-        const newSections = [...sections];
-        newSections.splice(index, 1);
-        setSections(newSections);
-    };
-
-    const updateSection = (index: number, field: keyof PinSection, value: any) => {
-        const newSections = [...sections];
-        newSections[index] = { ...newSections[index], [field]: value };
-        setSections(newSections);
-    };
-
-    // Inventory Helper for Sections
-    const InventoryEditor: React.FC<{ sectionIndex: number, currentItems: InventoryItem[] }> = ({ sectionIndex, currentItems }) => {
-        const [search, setSearch] = useState('');
-        const [matches, setMatches] = useState<ApiItem[]>([]);
-
-        useEffect(() => {
-            if (!search) { setMatches([]); return; }
-            setMatches(apiItems.filter(i => i.name.toLowerCase().includes(search.toLowerCase())).slice(0, 5));
-        }, [search, apiItems]);
-
-        const addItem = (apiItem: ApiItem) => {
-            const newItem: InventoryItem = {
-                id: Date.now().toString(),
-                name: apiItem.name,
-                count: 1,
-                is_magic: apiItem.is_magic
-            };
-            // Fetch basic details if possible from local cache or allow edit later
-            updateSection(sectionIndex, 'items', [...(currentItems || []), newItem]);
-            setSearch('');
-        };
-
-        const updateItem = (itemId: string, field: keyof InventoryItem, val: any) => {
-            const newItems = currentItems.map(i => i.id === itemId ? { ...i, [field]: val } : i);
-            updateSection(sectionIndex, 'items', newItems);
-        };
-
-        const removeItem = (itemId: string) => {
-            updateSection(sectionIndex, 'items', currentItems.filter(i => i.id !== itemId));
-        };
-
-        return (
-            <div className="space-y-3">
-                <div className="relative">
-                    <input type="text" placeholder="Search 5e items..." value={search} onChange={e => setSearch(e.target.value)} className="w-full bg-stone-900 border border-stone-700 rounded p-2 text-sm text-stone-300"/>
-                    {matches.length > 0 && (
-                        <div className="absolute top-full left-0 w-full bg-stone-800 border border-stone-700 z-50 max-h-40 overflow-y-auto">
-                            {matches.map(m => (
-                                <button key={m.index} onClick={() => addItem(m)} type="button" className="w-full text-left p-2 hover:bg-stone-700 text-sm text-stone-300">
-                                    {m.name}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </div>
-                <div className="space-y-1">
-                    {currentItems?.map(item => (
-                        <div key={item.id} className="flex items-center gap-2 bg-stone-900/50 p-2 rounded">
-                            <input type="number" value={item.count} onChange={e => updateItem(item.id, 'count', parseInt(e.target.value))} className="w-12 bg-stone-800 border border-stone-700 rounded text-center text-sm" />
-                            <span className={`flex-1 text-sm ${item.is_magic ? 'text-amber-400' : 'text-stone-300'}`}>{item.name}</span>
-                            <button type="button" onClick={() => removeItem(item.id)} className="text-stone-500 hover:text-red-500"><Icon name="trash" className="w-4 h-4"/></button>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-    };
-
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-
-        const dataPayload: PinData = {
-            description,
-            images: [], // Deprecated in favor of sections
-            sections,
-            encounter_file: encounterFile
-        };
-
-        const dbPayload = {
-            map_id: pinData.map_id,
-            x_coord: pinData.x_coord,
-            y_coord: pinData.y_coord,
-            title,
-            pin_type_id: pinTypeId,
-            linked_map_id: linkedMapId || null,
-            is_visible: isVisible,
-            data: dataPayload as any, // jsonb casting
-            created_by: pinData.created_by || user?.id
-        };
-
-        try {
-            if (pinData.id) {
-                await supabase.from('pins').update(dbPayload).eq('id', pinData.id);
-            } else {
-                await supabase.from('pins').insert(dbPayload);
-            }
-            await onSave();
-        } catch (error) {
-            console.error(error);
-            alert("Failed to save pin.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <Modal isOpen={true} onClose={onClose} title={pinData.id ? "Edit Pin" : "New Pin"} maxWidthClass="max-w-4xl">
-            <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                     <div className="bg-stone-800/40 p-4 rounded-xl border border-stone-700/50 space-y-3">
-                        <h3 className="text-xs font-bold uppercase text-stone-500">Core Info</h3>
-                        <input type="text" placeholder="Pin Title" value={title} onChange={e => setTitle(e.target.value)} required className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-4 py-3 text-stone-200 focus:border-amber-500 focus:outline-none" />
-                        <div className="flex gap-4">
-                            <div className="flex-1">
-                                <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Type</label>
-                                <select value={pinTypeId} onChange={e => setPinTypeId(e.target.value)} className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-3 py-2 text-stone-300">
-                                    {pinTypes.map(pt => <option key={pt.id} value={pt.id}>{pt.emoji} {pt.name}</option>)}
-                                </select>
-                            </div>
-                            <div className="flex-1">
-                                <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Linked Map</label>
-                                <select value={linkedMapId} onChange={e => setLinkedMapId(e.target.value)} className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-3 py-2 text-stone-300">
-                                    <option value="">(None)</option>
-                                    {maps.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        <label className="flex items-center gap-2 cursor-pointer pt-2">
-                             <input type="checkbox" checked={isVisible} onChange={e => setIsVisible(e.target.checked)} className="rounded bg-stone-800 border-stone-600 text-amber-600" />
-                             <span className="text-sm text-stone-300 font-bold">Visible to Players</span>
-                        </label>
-                     </div>
-
-                     <div className="bg-stone-800/40 p-4 rounded-xl border border-stone-700/50 space-y-3">
-                         <h3 className="text-xs font-bold uppercase text-stone-500">Main Description</h3>
-                         <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-4 py-3 text-stone-200 focus:border-amber-500 focus:outline-none" placeholder="General description seen by everyone..." />
-                     </div>
-
-                     <div className="bg-stone-800/40 p-4 rounded-xl border border-stone-700/50 space-y-3">
-                         <h3 className="text-xs font-bold uppercase text-stone-500">Encounter Data</h3>
-                         <label className="block w-full cursor-pointer bg-stone-900/50 border border-dashed border-stone-600 rounded-xl p-4 text-center hover:border-amber-500 transition-colors">
-                             <span className="text-sm text-stone-400">{encounterFile ? `File Loaded: ${encounterFile.name}` : "Upload .json Encounter File"}</span>
-                             <input type="file" accept=".json" className="hidden" onChange={async (e) => {
-                                 const f = e.target.files?.[0];
-                                 if (f) {
-                                     const text = await f.text();
-                                     setEncounterFile({ name: f.name, content: text });
-                                 }
-                             }}/>
-                         </label>
-                         {encounterFile && <button type="button" onClick={() => setEncounterFile(null)} className="text-xs text-red-400 hover:underline">Clear File</button>}
-                     </div>
-                </div>
-
-                {/* Right Column: Sections */}
-                <div className="flex flex-col h-full bg-stone-800/20 rounded-xl border border-stone-700/30 overflow-hidden">
-                    <div className="bg-stone-800/80 p-3 border-b border-stone-700/50 flex justify-between items-center">
-                        <span className="font-medieval text-stone-300">Content Sections</span>
-                        <div className="flex gap-1">
-                            {['text', 'secret', 'list', 'statblock', 'image', 'inventory'].map(t => (
-                                <button key={t} type="button" onClick={() => addSection(t as PinSectionType)} className="p-1.5 bg-stone-700 hover:bg-amber-600 rounded text-stone-200 text-xs uppercase" title={`Add ${t}`}>
-                                    <Icon name={t === 'secret' ? 'lock' : t === 'image' ? 'image' : t === 'inventory' ? 'backpack' : t === 'list' ? 'scroll' : t === 'statblock' ? 'shield' : 'book'} className="w-4 h-4" />
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-4">
-                        {sections.map((section, idx) => (
-                            <div key={idx} className={`relative bg-stone-900/40 rounded-xl border p-3 ${section.type === 'secret' ? 'border-red-900/30' : 'border-stone-700/50'}`}>
-                                <div className="flex justify-between items-center mb-2">
-                                    <input type="text" value={section.title} onChange={e => updateSection(idx, 'title', e.target.value)} className="bg-transparent border-b border-stone-700 text-sm font-bold text-stone-300 focus:border-amber-500 focus:outline-none w-1/2" />
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] uppercase text-stone-600 font-bold">{section.type}</span>
-                                        <button type="button" onClick={() => removeSection(idx)} className="text-stone-600 hover:text-red-500"><Icon name="close" className="w-4 h-4"/></button>
-                                    </div>
+                    <div className="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                        {pinTypes.map(pt => (
+                            <div key={pt.id} className="group flex items-center justify-between p-2 rounded-lg hover:bg-stone-800/50">
+                                <div className="flex items-center gap-2">
+                                    <span style={{color: pt.color}}>{pt.emoji}</span>
+                                    <span className="text-sm text-stone-300">{pt.name}</span>
                                 </div>
-                                
-                                {section.type === 'text' && <textarea value={section.content} onChange={e => updateSection(idx, 'content', e.target.value)} rows={3} className="w-full bg-stone-800/50 border border-stone-700 rounded p-2 text-sm text-stone-300"/>}
-                                {section.type === 'secret' && <textarea value={section.content} onChange={e => updateSection(idx, 'content', e.target.value)} rows={3} className="w-full bg-red-950/20 border border-red-900/30 rounded p-2 text-sm text-red-200"/>}
-                                {section.type === 'image' && (
-                                    <div className="space-y-2">
-                                        <div className="flex gap-2">
-                                            <input type="text" placeholder="Image URL" value={section.image_url || ''} onChange={e => updateSection(idx, 'image_url', e.target.value)} className="flex-1 bg-stone-800 border border-stone-700 rounded p-1 text-xs text-stone-300"/>
-                                            <label className="cursor-pointer bg-stone-700 px-2 py-1 rounded text-xs text-stone-200 hover:bg-stone-600">
-                                                Upload
-                                                <input type="file" className="hidden" accept="image/*" onChange={async (e) => {
-                                                    if(e.target.files?.[0]) updateSection(idx, 'image_url', await fileToBase64(e.target.files[0]));
-                                                }}/>
-                                            </label>
-                                        </div>
-                                        {section.image_url && <img src={section.image_url} className="h-20 rounded border border-stone-700" />}
-                                    </div>
-                                )}
-                                {section.type === 'list' && (
-                                    <div>
-                                        <div className="flex gap-2 mb-2">
-                                            <input type="text" placeholder="Add item..." onKeyPress={e => {
-                                                if(e.key === 'Enter') { 
-                                                    e.preventDefault(); 
-                                                    const target = e.target as HTMLInputElement; 
-                                                    if(target.value) { 
-                                                        updateSection(idx, 'list_items', [...(section.list_items || []), target.value]); 
-                                                        target.value = ''; 
-                                                    } 
-                                                }
-                                            }} className="flex-1 bg-stone-800 border border-stone-700 rounded p-1 text-xs text-stone-300"/>
-                                        </div>
-                                        <ul className="space-y-1">
-                                            {section.list_items?.map((li, liIdx) => (
-                                                <li key={liIdx} className="flex justify-between text-xs text-stone-400 bg-stone-800/50 px-2 py-1 rounded">
-                                                    <span>{li}</span>
-                                                    <button type="button" onClick={() => updateSection(idx, 'list_items', section.list_items?.filter((_, i) => i !== liIdx))} className="text-stone-600 hover:text-red-500">&times;</button>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-                                {section.type === 'statblock' && (
-                                    <div className="space-y-2">
-                                        <button type="button" onClick={() => updateSection(idx, 'stats', [...(section.stats || []), {label: 'New Stat', value: '10'}])} className="text-xs text-amber-500 hover:underline">+ Add Stat</button>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {section.stats?.map((stat, sIdx) => (
-                                                <div key={sIdx} className="bg-stone-800 p-1 rounded border border-stone-700 flex flex-col gap-1">
-                                                    <input type="text" value={stat.label} onChange={e => {
-                                                        const newStats = [...(section.stats || [])]; newStats[sIdx].label = e.target.value; updateSection(idx, 'stats', newStats);
-                                                    }} className="bg-transparent text-[10px] text-amber-500 font-bold uppercase w-full"/>
-                                                    <div className="flex justify-between">
-                                                        <input type="text" value={stat.value} onChange={e => {
-                                                            const newStats = [...(section.stats || [])]; newStats[sIdx].value = e.target.value; updateSection(idx, 'stats', newStats);
-                                                        }} className="bg-transparent text-sm text-stone-200 w-full"/>
-                                                        <button type="button" onClick={() => updateSection(idx, 'stats', section.stats?.filter((_, i) => i !== sIdx))} className="text-stone-600 hover:text-red-500 px-1">&times;</button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                                {section.type === 'inventory' && <InventoryEditor sectionIndex={idx} currentItems={section.items || []} />}
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => handleEdit(pt)} className="p-1 hover:text-amber-500 text-stone-500"><Icon name="pencil" className="w-4 h-4"/></button>
+                                    <button onClick={() => handleDelete(pt.id)} className="p-1 hover:text-red-500 text-stone-500"><Icon name="trash" className="w-4 h-4"/></button>
+                                </div>
                             </div>
                         ))}
-                        {sections.length === 0 && <p className="text-center text-stone-600 text-sm italic py-4">No content sections added.</p>}
                     </div>
                 </div>
-
-                <div className="lg:col-span-2 flex justify-end gap-3 border-t border-stone-700/50 pt-4">
-                    <button type="button" onClick={onClose} className="bg-stone-700 hover:bg-stone-600 text-stone-200 font-bold py-3 px-6 rounded-xl transition-all">Cancel</button>
-                    <button type="submit" disabled={loading} className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all">
-                        {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin mx-auto"/> : "Save Pin"}
-                    </button>
+                <div className="md:col-span-2">
+                    <h3 className="text-lg font-medieval text-stone-300 mb-4">{isEditing ? 'Edit Pin Type' : 'Create New Type'}</h3>
+                    <form onSubmit={handleSave} className="space-y-4">
+                         <div>
+                            <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Name</label>
+                            <input type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-4 py-3 text-stone-200" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                             <div>
+                                <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Emoji Icon</label>
+                                <input type="text" value={emoji} onChange={e => setEmoji(e.target.value)} className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-4 py-3 text-stone-200" />
+                            </div>
+                             <div>
+                                <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Color</label>
+                                <input type="color" value={color} onChange={e => setColor(e.target.value)} className="w-full h-12 rounded-xl border border-stone-600/50 bg-stone-800/40 p-1" />
+                            </div>
+                        </div>
+                         <div className="flex justify-end pt-4">
+                             <button type="submit" disabled={loading} className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-6 rounded-xl shadow-lg transition-all disabled:opacity-50">
+                                {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Save Type'}
+                             </button>
+                        </div>
+                    </form>
                 </div>
-            </form>
+            </div>
         </Modal>
     );
 };
@@ -983,13 +715,12 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
 // --- CHARACTER MANAGER MODAL ---
 interface CharacterManagerModalProps { isOpen: boolean; onClose: () => void; }
 export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ isOpen, onClose }) => {
-    const { user } = useAuth();
     const { characters, refreshData } = useAppContext();
+    const { user } = useAuth();
     const [editingChar, setEditingChar] = useState<Partial<Character> | null>(null);
     const [isEditing, setIsEditing] = useState(false);
-    const [loading, setLoading] = useState(false);
-
-    // Form State
+    
+    // Form fields
     const [name, setName] = useState('');
     const [race, setRace] = useState('');
     const [charClass, setCharClass] = useState('');
@@ -1000,30 +731,28 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
     const [imageUrl, setImageUrl] = useState('');
     const [sheetUrl, setSheetUrl] = useState('');
     const [isNpc, setIsNpc] = useState(true);
-    const [isVisible, setIsVisible] = useState(true);
-    const [charJson, setCharJson] = useState<any>(null);
+    const [isVisible, setIsVisible] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const resetForm = () => {
         setEditingChar(null); setIsEditing(false);
         setName(''); setRace(''); setCharClass(''); setLevel(1); setAlignment('');
-        setBackstory(''); setGmNotes(''); setImageUrl(''); setSheetUrl('');
-        setIsNpc(true); setIsVisible(true); setCharJson(null);
+        setBackstory(''); setGmNotes(''); setImageUrl(''); setSheetUrl(''); setIsNpc(true); setIsVisible(false);
     };
 
-    const handleEdit = (char: Character) => {
-        setEditingChar(char); setIsEditing(true);
-        setName(char.name);
-        setRace(char.role_details?.race || '');
-        setCharClass(char.role_details?.class || '');
-        setLevel(char.role_details?.level || 1);
-        setAlignment(char.role_details?.alignment || '');
-        setBackstory(char.backstory || '');
-        setGmNotes(char.gm_notes || '');
-        setImageUrl(char.image_url || '');
-        setSheetUrl(char.sheet_url || '');
-        setIsNpc(char.is_npc);
-        setIsVisible(char.is_visible);
-        setCharJson(char.character_json || null);
+    const handleEdit = (c: Character) => {
+        setEditingChar(c); setIsEditing(true);
+        setName(c.name);
+        setRace(c.role_details?.race || '');
+        setCharClass(c.role_details?.class || '');
+        setLevel(c.role_details?.level || 1);
+        setAlignment(c.role_details?.alignment || '');
+        setBackstory(c.backstory || '');
+        setGmNotes(c.gm_notes || '');
+        setImageUrl(c.image_url || '');
+        setSheetUrl(c.sheet_url || '');
+        setIsNpc(c.is_npc);
+        setIsVisible(c.is_visible);
     };
 
     const handleSave = async (e: React.FormEvent) => {
@@ -1036,141 +765,107 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
             role_details: { race, class: charClass, level, alignment },
             backstory,
             gm_notes: gmNotes,
-            image_url: imageUrl || null,
-            sheet_url: sheetUrl || null,
+            image_url: imageUrl,
+            sheet_url: sheetUrl,
             is_npc: isNpc,
             is_visible: isVisible,
-            character_json: charJson,
-            created_by: editingChar?.created_by || user.id
+            created_by: user.id
         };
 
-        try {
-            if (isEditing && editingChar?.id) {
-                await supabase.from('characters').update(payload).eq('id', editingChar.id);
-            } else {
-                await supabase.from('characters').insert(payload);
-            }
-            await refreshData(true);
-            resetForm();
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
+        if (isEditing && editingChar?.id) {
+            await supabase.from('characters').update(payload).eq('id', editingChar.id);
+        } else {
+            await supabase.from('characters').insert(payload);
         }
+        await refreshData(true);
+        setLoading(false);
+        resetForm();
     };
-
-     const handleDelete = async (id: string) => {
-        if (!confirm('Delete this character?')) return;
+    
+    const handleDelete = async (id: string) => {
+        if(!confirm("Delete this character?")) return;
         await supabase.from('characters').delete().eq('id', id);
         await refreshData(true);
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Manage Characters" maxWidthClass="max-w-5xl">
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+         <Modal isOpen={isOpen} onClose={onClose} title="Manage Characters" maxWidthClass="max-w-6xl">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="md:col-span-1 border-r border-stone-800 pr-4 space-y-4">
-                    <button onClick={resetForm} className="w-full bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold py-2 px-4 rounded-xl transition-all border border-stone-700 flex items-center justify-center gap-2">
-                        <Icon name="plus" className="w-4 h-4"/> New Character
+                    <button onClick={resetForm} className="w-full flex items-center justify-center space-x-2 bg-stone-800 hover:bg-stone-700 text-stone-200 font-bold py-2 px-4 rounded-xl transition-all border border-stone-700">
+                        <Icon name="plus" className="h-4 w-4" />
+                        <span>New Character</span>
                     </button>
-                    <div className="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                    <div className="space-y-2 max-h-[70vh] overflow-y-auto custom-scrollbar">
                         {characters.map(c => (
-                            <div key={c.id} className="group flex items-center justify-between p-2 rounded-lg hover:bg-stone-800/50">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                     <div className="w-8 h-8 rounded-full bg-stone-800 overflow-hidden flex-shrink-0">
-                                        {c.image_url ? <img src={c.image_url} className="w-full h-full object-cover"/> : <div className="flex items-center justify-center h-full"><Icon name="user" className="w-4 h-4 text-stone-500"/></div>}
-                                     </div>
-                                     <div className="min-w-0">
-                                         <div className="text-sm text-stone-300 truncate font-bold">{c.name}</div>
-                                         <div className="text-xs text-stone-500 truncate">{c.role_details?.race} {c.role_details?.class}</div>
-                                     </div>
+                            <div key={c.id} className="group flex items-center justify-between p-2 rounded-lg hover:bg-stone-800/50 cursor-pointer" onClick={() => handleEdit(c)}>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-stone-700 overflow-hidden">
+                                        {c.image_url && <img src={c.image_url} className="w-full h-full object-cover"/>}
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="text-sm text-stone-300 font-bold">{c.name}</div>
+                                        <div className="text-[10px] text-stone-500 uppercase">{c.is_npc ? 'NPC' : 'PC'}</div>
+                                    </div>
                                 </div>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => handleEdit(c)} className="p-1 hover:text-amber-500 text-stone-500"><Icon name="pencil" className="w-4 h-4"/></button>
-                                    <button onClick={() => handleDelete(c.id)} className="p-1 hover:text-red-500 text-stone-500"><Icon name="trash" className="w-4 h-4"/></button>
-                                </div>
+                                <button onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }} className="p-1 text-stone-600 hover:text-red-500 opacity-0 group-hover:opacity-100"><Icon name="trash" className="w-4 h-4"/></button>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <div className="md:col-span-2">
-                    <h3 className="text-lg font-medieval text-stone-300 mb-4">{isEditing ? `Edit ${editingChar?.name}` : 'Create New Character'}</h3>
+                <div className="md:col-span-3">
                     <form onSubmit={handleSave} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="col-span-2 sm:col-span-1">
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
                                 <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Name</label>
                                 <input type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-3 py-2 text-stone-200" />
                             </div>
-                            <div className="col-span-2 sm:col-span-1">
-                                <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Class</label>
-                                <input type="text" value={charClass} onChange={e => setCharClass(e.target.value)} className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-3 py-2 text-stone-200" />
-                            </div>
-                        </div>
-
-                         <div className="grid grid-cols-3 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Race</label>
-                                <input type="text" value={race} onChange={e => setRace(e.target.value)} className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-3 py-2 text-stone-200" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Level</label>
-                                <input type="number" value={level} onChange={e => setLevel(parseInt(e.target.value))} className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-3 py-2 text-stone-200" />
-                            </div>
-                             <div>
-                                <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Alignment</label>
-                                <input type="text" value={alignment} onChange={e => setAlignment(e.target.value)} className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-3 py-2 text-stone-200" />
-                            </div>
-                        </div>
-
-                         <div className="bg-stone-800/30 p-3 rounded-xl border border-stone-700/30">
-                             <div className="flex gap-2 mb-2">
-                                <input type="text" placeholder="Image URL" value={imageUrl} onChange={e => setImageUrl(e.target.value)} className="flex-1 bg-stone-800 border border-stone-700 rounded p-1 text-xs text-stone-300"/>
-                                <label className="cursor-pointer bg-stone-700 px-2 py-1 rounded text-xs text-stone-200 hover:bg-stone-600 flex items-center gap-1">
-                                    <Icon name="upload" className="w-3 h-3"/> Upload
-                                    <input type="file" className="hidden" accept="image/*" onChange={async (e) => {
-                                        if(e.target.files?.[0]) setImageUrl(await fileToBase64(e.target.files[0]));
-                                    }}/>
+                             <div className="flex gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer text-sm text-stone-300 bg-stone-800/30 px-3 py-2 rounded-xl border border-stone-700/50 flex-1">
+                                    <input type="checkbox" checked={isNpc} onChange={e => setIsNpc(e.target.checked)} className="rounded bg-stone-800 border-stone-600 text-amber-600" />
+                                    Is NPC
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer text-sm text-stone-300 bg-stone-800/30 px-3 py-2 rounded-xl border border-stone-700/50 flex-1">
+                                    <input type="checkbox" checked={isVisible} onChange={e => setIsVisible(e.target.checked)} className="rounded bg-stone-800 border-stone-600 text-amber-600" />
+                                    Visible to Players
                                 </label>
                             </div>
-                            {imageUrl && <img src={imageUrl} className="h-20 w-auto rounded border border-stone-600" />}
-                        </div>
+                         </div>
+                         
+                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div><label className="text-xs text-stone-500">Race</label><input type="text" value={race} onChange={e => setRace(e.target.value)} className="w-full rounded-xl bg-stone-800/40 px-3 py-2 text-stone-200 border border-stone-600/50"/></div>
+                            <div><label className="text-xs text-stone-500">Class</label><input type="text" value={charClass} onChange={e => setCharClass(e.target.value)} className="w-full rounded-xl bg-stone-800/40 px-3 py-2 text-stone-200 border border-stone-600/50"/></div>
+                            <div><label className="text-xs text-stone-500">Level</label><input type="number" value={level} onChange={e => setLevel(parseInt(e.target.value))} className="w-full rounded-xl bg-stone-800/40 px-3 py-2 text-stone-200 border border-stone-600/50"/></div>
+                            <div><label className="text-xs text-stone-500">Alignment</label><input type="text" value={alignment} onChange={e => setAlignment(e.target.value)} className="w-full rounded-xl bg-stone-800/40 px-3 py-2 text-stone-200 border border-stone-600/50"/></div>
+                         </div>
 
-                        <div>
-                             <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Sheet URL (External)</label>
-                             <input type="text" value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-3 py-2 text-stone-200" placeholder="https://dndbeyond.com/..." />
-                        </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Image URL</label>
+                                <div className="flex gap-2">
+                                    <input type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)} className="flex-1 rounded-xl bg-stone-800/40 px-3 py-2 text-xs text-stone-300 border border-stone-600/50"/>
+                                    <label className="cursor-pointer p-2 bg-stone-700 rounded-lg hover:bg-stone-600"><Icon name="upload" className="w-4 h-4"/><input type="file" className="hidden" onChange={async (e) => {if(e.target.files?.[0]) setImageUrl(await fileToBase64(e.target.files[0]))}} /></label>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Sheet URL (Optional)</label>
+                                <input type="text" value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} className="w-full rounded-xl bg-stone-800/40 px-3 py-2 text-xs text-stone-300 border border-stone-600/50"/>
+                            </div>
+                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Backstory</label>
-                                <textarea value={backstory} onChange={e => setBackstory(e.target.value)} rows={4} className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-3 py-2 text-stone-200 text-sm" />
+                                <textarea value={backstory} onChange={e => setBackstory(e.target.value)} rows={5} className="w-full rounded-xl bg-stone-800/40 px-3 py-2 text-sm text-stone-300 border border-stone-600/50 custom-scrollbar"/>
                             </div>
                              <div>
-                                <label className="block text-xs font-bold uppercase text-red-500 mb-1">GM Notes (Private)</label>
-                                <textarea value={gmNotes} onChange={e => setGmNotes(e.target.value)} rows={4} className="w-full rounded-xl border border-red-900/50 bg-red-950/20 px-3 py-2 text-red-200 text-sm" />
+                                <label className="block text-xs font-bold uppercase text-stone-500 mb-1 text-red-400">GM Notes (Secret)</label>
+                                <textarea value={gmNotes} onChange={e => setGmNotes(e.target.value)} rows={5} className="w-full rounded-xl bg-red-950/20 px-3 py-2 text-sm text-stone-300 border border-red-900/40 custom-scrollbar"/>
                             </div>
-                        </div>
+                         </div>
 
-                        <div className="flex gap-4 border-t border-stone-800 pt-4">
-                            <label className="flex items-center gap-2 cursor-pointer text-sm text-stone-300">
-                                <input type="checkbox" checked={isNpc} onChange={e => setIsNpc(e.target.checked)} className="rounded bg-stone-800 border-stone-600 text-amber-600" />
-                                Is NPC
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer text-sm text-stone-300">
-                                <input type="checkbox" checked={isVisible} onChange={e => setIsVisible(e.target.checked)} className="rounded bg-stone-800 border-stone-600 text-amber-600" />
-                                Visible to Players
-                            </label>
-                            
-                             <label className="flex items-center gap-2 cursor-pointer text-sm text-stone-300 ml-auto">
-                                <Icon name="upload" className="w-4 h-4"/>
-                                {charJson ? "JSON Loaded" : "Upload JSON"}
-                                <input type="file" className="hidden" accept=".json" onChange={async (e) => {
-                                    if(e.target.files?.[0]) setCharJson(JSON.parse(await e.target.files[0].text()));
-                                }}/>
-                            </label>
-                        </div>
-
-                        <div className="flex justify-end pt-2">
+                         <div className="flex justify-end pt-4">
                              <button type="submit" disabled={loading} className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-6 rounded-xl shadow-lg transition-all disabled:opacity-50">
                                 {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Save Character'}
                              </button>
@@ -1178,6 +873,255 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
                     </form>
                 </div>
             </div>
+         </Modal>
+    );
+};
+
+// --- PIN EDITOR MODAL ---
+interface PinEditorModalProps {
+    pinData: Partial<Pin>;
+    onClose: () => void;
+    onSave: () => Promise<void>;
+}
+
+export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose, onSave }) => {
+    const { pinTypes, maps } = useAppContext();
+    const { user } = useAuth();
+    const { items: allItems } = useItems(); // From ItemProvider
+    
+    // Form State
+    const [title, setTitle] = useState(pinData.title || '');
+    const [pinTypeId, setPinTypeId] = useState(pinData.pin_type_id || (pinTypes[0]?.id || ''));
+    const [isVisible, setIsVisible] = useState(pinData.is_visible ?? false);
+    const [description, setDescription] = useState(pinData.data?.description || '');
+    const [linkedMapId, setLinkedMapId] = useState(pinData.linked_map_id || '');
+    const [sections, setSections] = useState<PinSection[]>(pinData.data?.sections || []);
+    
+    const [loading, setLoading] = useState(false);
+
+    // Section Editor State
+    const [itemSearch, setItemSearch] = useState('');
+
+    const addSection = (type: PinSectionType) => {
+        setSections([...sections, {
+            id: crypto.randomUUID(),
+            type,
+            title: type === 'secret' ? 'Secret Note' : type.charAt(0).toUpperCase() + type.slice(1),
+            content: '',
+            list_items: type === 'list' ? [] : undefined,
+            stats: type === 'statblock' ? [] : undefined,
+            items: type === 'inventory' ? [] : undefined,
+            image_url: type === 'image' ? '' : undefined
+        }]);
+    };
+
+    const updateSection = (id: string, updates: Partial<PinSection>) => {
+        setSections(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    };
+    
+    const removeSection = (id: string) => {
+        setSections(prev => prev.filter(s => s.id !== id));
+    };
+
+    // Inventory Helpers
+    const addItemToSection = (sectionId: string, item: ApiItem) => {
+        const section = sections.find(s => s.id === sectionId);
+        if (!section || !section.items) return;
+        
+        const newItem: InventoryItem = {
+            id: crypto.randomUUID(),
+            name: item.name,
+            count: 1,
+            desc: item.desc?.join('\n') || '',
+            rarity: item.rarity?.name,
+            is_magic: item.is_magic,
+            cost: item.cost ? `${item.cost.quantity} ${item.cost.unit}` : undefined,
+            category: item.equipment_category?.name
+        };
+        
+        updateSection(sectionId, { items: [...section.items, newItem] });
+    };
+
+    const handleSaveLocal = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+
+        const payload: Partial<Pin> = {
+            title,
+            pin_type_id: pinTypeId,
+            is_visible: isVisible,
+            linked_map_id: linkedMapId || null,
+            data: {
+                ...pinData.data,
+                description,
+                sections,
+                images: pinData.data?.images || []
+            },
+            // If new pin, include coords
+            ...(pinData.x_coord !== undefined ? { x_coord: pinData.x_coord, y_coord: pinData.y_coord, map_id: pinData.map_id } : {})
+        };
+
+        if (pinData.id) {
+            await supabase.from('pins').update(payload).eq('id', pinData.id);
+        } else if (user) {
+            await supabase.from('pins').insert({ ...payload, created_by: user.id });
+        }
+        
+        await onSave();
+        setLoading(false);
+    };
+
+    return (
+        <Modal isOpen={true} onClose={onClose} title={pinData.id ? "Edit Pin" : "New Pin"} maxWidthClass="max-w-5xl">
+            <form onSubmit={handleSaveLocal} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div>
+                        <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Title</label>
+                        <input type="text" value={title} onChange={e => setTitle(e.target.value)} required className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-3 py-2 text-stone-200" autoFocus />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Pin Type</label>
+                        <select value={pinTypeId} onChange={e => setPinTypeId(e.target.value)} className="w-full rounded-xl border border-stone-600/50 bg-stone-800/40 px-3 py-2 text-stone-200">
+                            {pinTypes.map(pt => <option key={pt.id} value={pt.id}>{pt.emoji} {pt.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+                
+                <div className="flex items-center gap-6 bg-stone-800/30 p-3 rounded-xl border border-stone-700/30">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-stone-300">
+                        <input type="checkbox" checked={isVisible} onChange={e => setIsVisible(e.target.checked)} className="rounded bg-stone-800 border-stone-600 text-amber-600" />
+                        Visible to Players
+                    </label>
+                    <div className="h-4 w-px bg-stone-700"></div>
+                     <div className="flex-1 flex items-center gap-2">
+                         <span className="text-xs font-bold uppercase text-stone-500 whitespace-nowrap">Link to Map:</span>
+                         <select value={linkedMapId} onChange={e => setLinkedMapId(e.target.value)} className="w-full rounded-lg bg-stone-900 border border-stone-700/50 px-2 py-1 text-xs text-stone-300">
+                            <option value="">(None)</option>
+                            {maps.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                         </select>
+                     </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold uppercase text-stone-500 mb-1">Main Description</label>
+                    <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} className="w-full rounded-xl bg-stone-800/40 px-3 py-2 text-sm text-stone-300 border border-stone-600/50 custom-scrollbar"/>
+                </div>
+                
+                {/* Sections Editor */}
+                <div className="space-y-4 pt-4 border-t border-stone-800">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-bold uppercase text-stone-400">Content Sections</h3>
+                        <div className="flex gap-2">
+                             {(['text', 'image', 'list', 'statblock', 'inventory', 'secret'] as PinSectionType[]).map(type => (
+                                 <button key={type} type="button" onClick={() => addSection(type)} className="px-2 py-1 bg-stone-800 hover:bg-stone-700 rounded text-xs text-stone-300 capitalize border border-stone-700">
+                                     + {type}
+                                 </button>
+                             ))}
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        {sections.map((section, idx) => (
+                            <div key={section.id} className="bg-stone-900/30 border border-stone-800 rounded-xl p-4 relative group">
+                                <button type="button" onClick={() => removeSection(section.id)} className="absolute top-2 right-2 text-stone-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="trash" className="w-4 h-4"/></button>
+                                
+                                <div className="mb-3 flex gap-3">
+                                    <div className="bg-stone-800 px-2 py-1 rounded text-xs font-bold uppercase text-stone-500 self-start">{section.type}</div>
+                                    <input type="text" value={section.title} onChange={e => updateSection(section.id, {title: e.target.value})} className="bg-transparent border-b border-stone-700 text-stone-200 font-medieval font-bold text-lg focus:outline-none focus:border-amber-500 w-full" placeholder="Section Title"/>
+                                </div>
+
+                                {section.type === 'text' && (
+                                    <textarea value={section.content} onChange={e => updateSection(section.id, {content: e.target.value})} rows={3} className="w-full bg-stone-800/50 rounded p-2 text-sm text-stone-300 border border-stone-700/50" placeholder="Content text..."/>
+                                )}
+                                
+                                {section.type === 'secret' && (
+                                    <textarea value={section.content} onChange={e => updateSection(section.id, {content: e.target.value})} rows={3} className="w-full bg-red-950/20 rounded p-2 text-sm text-red-200/80 border border-red-900/40" placeholder="Secret GM text..."/>
+                                )}
+
+                                {section.type === 'list' && (
+                                     <div>
+                                        <p className="text-[10px] text-stone-500 mb-1">One item per line:</p>
+                                        <textarea 
+                                            value={section.list_items?.join('\n') || ''} 
+                                            onChange={e => updateSection(section.id, {list_items: e.target.value.split('\n')})} 
+                                            rows={4} 
+                                            className="w-full bg-stone-800/50 rounded p-2 text-sm text-stone-300 border border-stone-700/50" 
+                                            placeholder="Item 1&#10;Item 2&#10;Item 3"
+                                        />
+                                    </div>
+                                )}
+                                
+                                {section.type === 'image' && (
+                                    <div className="flex gap-2 items-center">
+                                         <input type="text" value={section.image_url || ''} onChange={e => updateSection(section.id, {image_url: e.target.value})} className="flex-1 bg-stone-800/50 rounded p-2 text-sm text-stone-300 border border-stone-700/50" placeholder="Image URL..."/>
+                                         <label className="cursor-pointer p-2 bg-stone-800 rounded hover:bg-stone-700"><Icon name="upload" className="w-4 h-4"/><input type="file" className="hidden" accept="image/*" onChange={async e => {if(e.target.files?.[0]) updateSection(section.id, {image_url: await fileToBase64(e.target.files[0])})}} /></label>
+                                         {section.image_url && <img src={section.image_url} className="h-10 w-10 object-cover rounded border border-stone-700" alt="Preview"/>}
+                                    </div>
+                                )}
+
+                                {section.type === 'statblock' && (
+                                    <div className="space-y-2">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {section.stats?.map((stat, i) => (
+                                                <div key={i} className="flex gap-1">
+                                                    <input type="text" value={stat.label} onChange={e => {
+                                                        const newStats = [...(section.stats || [])]; newStats[i].label = e.target.value; updateSection(section.id, {stats: newStats});
+                                                    }} className="w-1/3 bg-stone-800/50 rounded p-1 text-xs text-amber-500 font-bold uppercase border border-stone-700" placeholder="Label"/>
+                                                    <input type="text" value={stat.value} onChange={e => {
+                                                        const newStats = [...(section.stats || [])]; newStats[i].value = e.target.value; updateSection(section.id, {stats: newStats});
+                                                    }} className="w-2/3 bg-stone-800/50 rounded p-1 text-sm text-stone-200 border border-stone-700" placeholder="Value"/>
+                                                    <button type="button" onClick={() => {
+                                                         const newStats = [...(section.stats || [])]; newStats.splice(i, 1); updateSection(section.id, {stats: newStats});
+                                                    }} className="text-stone-600 hover:text-red-500 px-1">&times;</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <button type="button" onClick={() => updateSection(section.id, {stats: [...(section.stats || []), {label: '', value: ''}]})} className="text-xs text-amber-500 hover:text-amber-400 font-bold">+ Add Stat</button>
+                                    </div>
+                                )}
+
+                                {section.type === 'inventory' && (
+                                    <div className="space-y-2">
+                                        <div className="relative">
+                                            <input type="text" value={itemSearch} onChange={e => setItemSearch(e.target.value)} className="w-full bg-stone-800/50 rounded p-2 text-sm text-stone-300 border border-stone-700/50 focus:border-amber-500" placeholder="Search 5e SRD items to add..."/>
+                                            {itemSearch && (
+                                                <div className="absolute top-full left-0 w-full bg-stone-800 border border-stone-600 rounded-b-lg max-h-40 overflow-y-auto z-10 shadow-xl">
+                                                    {allItems.filter(i => i.name.toLowerCase().includes(itemSearch.toLowerCase())).slice(0, 10).map(item => (
+                                                        <button key={item.index} type="button" onClick={() => { addItemToSection(section.id, item); setItemSearch(''); }} className="w-full text-left px-3 py-2 text-sm text-stone-300 hover:bg-amber-900/30 hover:text-amber-500 block truncate">
+                                                            {item.name}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="space-y-1 max-h-40 overflow-y-auto custom-scrollbar">
+                                            {section.items?.map((item, i) => (
+                                                <div key={item.id || i} className="flex items-center gap-2 bg-stone-900/50 p-1.5 rounded border border-stone-800">
+                                                    <input type="number" value={item.count} onChange={e => {
+                                                        const newItems = [...(section.items || [])]; newItems[i].count = parseInt(e.target.value); updateSection(section.id, {items: newItems});
+                                                    }} className="w-12 bg-stone-800 text-center text-xs text-stone-400 rounded border border-stone-700"/>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className={`text-sm truncate ${item.is_magic ? 'text-amber-500' : 'text-stone-300'}`}>{item.name}</div>
+                                                    </div>
+                                                    <button type="button" onClick={() => {
+                                                        const newItems = [...(section.items || [])]; newItems.splice(i, 1); updateSection(section.id, {items: newItems});
+                                                    }} className="text-stone-600 hover:text-red-500 px-2">&times;</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-stone-800">
+                    <button type="submit" disabled={loading} className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition-all disabled:opacity-50">
+                        {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Save Pin'}
+                    </button>
+                </div>
+            </form>
         </Modal>
     );
-}
+};

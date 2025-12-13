@@ -9,12 +9,13 @@ interface MapViewerProps {
     map: MapType;
     onSelectPin: (pin: Pin) => void;
     onAddPin: (coords: { x: number; y: number }) => void;
+    onMovePin?: (pinId: string, x: number, y: number) => void;
     highlightedPinId?: string | null;
 }
 
 type InteractionMode = 'pan' | 'pin';
 
-const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, highlightedPinId }) => {
+const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMovePin, highlightedPinId }) => {
     const { pins, pinTypes, isPlayerView, characters } = useAppContext();
     const { user } = useAuth();
     const containerRef = useRef<HTMLDivElement>(null);
@@ -25,6 +26,10 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, highl
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
     const [imgDimensions, setImgDimensions] = useState({ width: 0, height: 0 });
     const [hoveredPinId, setHoveredPinId] = useState<string | null>(null);
+    
+    // Dragging Pins State
+    const [draggingPinId, setDraggingPinId] = useState<string | null>(null);
+    const [dragPosition, setDragPosition] = useState<{ x: number, y: number } | null>(null);
     
     // Default to 'pan' mode. Only DMs can switch to 'pin'.
     const [interactionMode, setInteractionMode] = useState<InteractionMode>('pan');
@@ -126,6 +131,9 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, highl
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {
+        // If we are dragging a pin, do not start pan
+        if (draggingPinId) return;
+
         if (interactionMode === 'pan' || e.button === 1 || e.button === 2) {
             setIsPanning(true);
             setPanStart({ x: e.clientX - viewState.x, y: e.clientY - viewState.y });
@@ -133,16 +141,53 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, highl
     };
     
     const handleMouseUp = (e: React.MouseEvent) => {
+        if (draggingPinId && dragPosition && onMovePin) {
+            onMovePin(draggingPinId, dragPosition.x, dragPosition.y);
+            setDraggingPinId(null);
+            setDragPosition(null);
+        }
         setIsPanning(false);
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
+        if (draggingPinId) {
+            if (!containerRef.current || imgDimensions.width === 0) return;
+            const rect = containerRef.current.getBoundingClientRect();
+            
+            // Calculate mouse position relative to the container
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Inverse transform to get image coordinates
+            // screen = image * scale + trans
+            // image = (screen - trans) / scale
+            let imgX = (mouseX - viewState.x) / viewState.scale;
+            let imgY = (mouseY - viewState.y) / viewState.scale;
+
+            // Grid Snapping for Drag
+            if (showGrid && gridSize > 0) {
+                 const col = Math.floor(imgX / gridSize);
+                 const row = Math.floor(imgY / gridSize);
+                 const centerX = (col * gridSize) + (gridSize / 2);
+                 const centerY = (row * gridSize) + (gridSize / 2);
+                 imgX = centerX;
+                 imgY = centerY;
+            }
+
+            // Convert to percentage
+            const pctX = imgX / imgDimensions.width;
+            const pctY = imgY / imgDimensions.height;
+
+            setDragPosition({ x: pctX, y: pctY });
+            return;
+        }
+
         if (!isPanning) return;
         setViewState(prev => ({ ...prev, x: e.clientX - panStart.x, y: e.clientY - panStart.y }));
     };
 
     const handleMapClick = (e: React.MouseEvent) => {
-        if (!canEdit || isPanning || interactionMode !== 'pin') return;
+        if (!canEdit || isPanning || interactionMode !== 'pin' || draggingPinId) return;
         
         if (e.target !== mapRef.current && e.target !== (mapRef.current?.querySelector('img') as HTMLElement) && e.target !== (mapRef.current?.querySelector('.grid-overlay') as HTMLElement)) return;
 
@@ -164,9 +209,20 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, highl
         
         onAddPin({ x, y });
     };
+    
+    // Start dragging a pin
+    const handlePinMouseDown = (e: React.MouseEvent, pinId: string, startX: number, startY: number) => {
+        if (!canEdit) return;
+        e.stopPropagation(); // Prevent panning
+        e.preventDefault();
+        setDraggingPinId(pinId);
+        setDragPosition({ x: startX, y: startY });
+    };
 
     let cursorStyle = 'default';
-    if (isPanning) {
+    if (draggingPinId) {
+        cursorStyle = 'grabbing';
+    } else if (isPanning) {
         cursorStyle = 'grabbing';
     } else if (interactionMode === 'pan') {
         cursorStyle = 'grab';
@@ -215,34 +271,40 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, highl
                     if (pin.map_id !== map.id) return null;
                     const pinType = getPinType(pin.pin_type_id);
                     const isHighlighted = pin.id === highlightedPinId;
+                    
+                    const isDragging = pin.id === draggingPinId;
+                    const displayX = isDragging && dragPosition ? dragPosition.x : pin.x_coord;
+                    const displayY = isDragging && dragPosition ? dragPosition.y : pin.y_coord;
 
                     return (
-                        <button
+                        <div
                             key={pin.id}
-                            onClick={(e) => { e.stopPropagation(); onSelectPin(pin); }}
+                            onMouseDown={(e) => handlePinMouseDown(e, pin.id, pin.x_coord, pin.y_coord)}
+                            onClick={(e) => { e.stopPropagation(); if(!isDragging) onSelectPin(pin); }}
                             onMouseEnter={() => setHoveredPinId(pin.id)}
                             onMouseLeave={() => setHoveredPinId(null)}
-                            className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-all focus:outline-none shadow-lg shadow-black/50 ${isHighlighted ? 'ring-4 ring-amber-500 ring-offset-2 ring-offset-black z-50 scale-125 animate-pulse' : 'hover:brightness-110 focus:ring-2 focus:ring-white hover:z-50'}`}
+                            className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-shadow focus:outline-none shadow-lg shadow-black/50 ${isHighlighted ? 'ring-4 ring-amber-500 ring-offset-2 ring-offset-black z-50 animate-pulse' : 'hover:brightness-110 focus:ring-2 focus:ring-white hover:z-50'} ${canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
                             style={{ 
-                                left: `${pin.x_coord * 100}%`, 
-                                top: `${pin.y_coord * 100}%`,
+                                left: `${displayX * 100}%`, 
+                                top: `${displayY * 100}%`,
                                 backgroundColor: pinType?.color || '#3B82F6',
                                 width: `${pinSize}px`,
                                 height: `${pinSize}px`,
-                                fontSize: `${pinSize * 0.6}px`, 
-                                cursor: 'pointer'
+                                fontSize: `${pinSize * 0.6}px`,
+                                transform: isHighlighted ? 'translate(-50%, -50%) scale(1.25)' : 'translate(-50%, -50%)',
+                                transition: isDragging ? 'none' : 'transform 0.1s ease-out'
                             }}
                             title={pin.title}
                         >
-                            <span className="drop-shadow-md leading-none select-none">
+                            <span className="drop-shadow-md leading-none select-none pointer-events-none">
                                 {pinType?.emoji || '📍'}
                             </span>
-                        </button>
+                        </div>
                     );
                 })}
 
                 {/* Hover Preview Tooltip */}
-                {hoveredPinId && (() => {
+                {hoveredPinId && !draggingPinId && (() => {
                     const pin = pins.find(p => p.id === hoveredPinId);
                     if (!pin || pin.map_id !== map.id) return null;
                     const pinType = getPinType(pin.pin_type_id);

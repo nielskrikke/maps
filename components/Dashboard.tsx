@@ -109,6 +109,18 @@ const Dashboard: React.FC = () => {
         await refreshData(true);
     };
     
+    const handleMovePin = async (pinId: string, x: number, y: number) => {
+        // Optimistic update
+        setPins(prev => prev.map(p => p.id === pinId ? { ...p, x_coord: x, y_coord: y } : p));
+        
+        const { error } = await supabase.from('pins').update({ x_coord: x, y_coord: y }).eq('id', pinId);
+        if (error) {
+            console.error("Error moving pin:", error);
+            // Revert on error
+            refreshData(true);
+        }
+    };
+    
     const handleOpenWikiCharacter = (charId: string) => {
         setWikiTarget({ type: 'character', id: charId });
         setCurrentView('wiki');
@@ -146,6 +158,7 @@ const Dashboard: React.FC = () => {
                                             setHighlightedPinId(null);
                                         }
                                     }}
+                                    onMovePin={handleMovePin}
                                     highlightedPinId={highlightedPinId}
                                 />
                             ) : (
