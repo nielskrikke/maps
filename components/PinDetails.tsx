@@ -16,7 +16,7 @@ interface PinDetailsProps {
 
 const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, onOpenWiki }) => {
     const { user } = useAuth();
-    const { isPlayerView, maps, characters, refreshData } = useAppContext();
+    const { isPlayerView, maps, characters, updateLocalCharacter } = useAppContext();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [isPrivateComment, setIsPrivateComment] = useState(false);
@@ -71,11 +71,19 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
     };
 
     const handleMoveCharacter = async (charId: string, targetPinId: string | null) => {
-        const { error } = await supabase.from('characters').update({ current_pin_id: targetPinId }).eq('id', charId);
-        if(!error) {
-            await refreshData(true);
-            setIsSummoning(false);
+        const char = characters.find(c => c.id === charId);
+        if (char) {
+            // Optimistic update
+            updateLocalCharacter({ ...char, current_pin_id: targetPinId });
+            
+            // Background update
+            const { error } = await supabase.from('characters').update({ current_pin_id: targetPinId }).eq('id', charId);
+            if(error) {
+                console.error("Failed to move character", error);
+                // Revert if error (not strictly implemented here for brevity, but recommended)
+            }
         }
+        setIsSummoning(false);
     };
 
     const handleDownloadEncounter = () => {

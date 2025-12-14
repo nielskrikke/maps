@@ -442,7 +442,7 @@ export const PlayerManagerModal: React.FC<PlayerManagerModalProps> = ({ isOpen, 
 interface MapManagerModalProps { isOpen: boolean; onClose: () => void; }
 export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClose }) => {
     const { user } = useAuth();
-    const { maps, refreshData } = useAppContext();
+    const { maps, updateLocalMap, removeLocalItem } = useAppContext();
     const [editingMap, setEditingMap] = useState<Partial<MapType> | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     
@@ -493,13 +493,19 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
                 created_by: user.id
             };
 
+            let data;
             if (isEditing && editingMap?.id) {
-                await supabase.from('maps').update(payload).eq('id', editingMap.id);
+                const res = await supabase.from('maps').update(payload).eq('id', editingMap.id).select().single();
+                data = res.data;
             } else {
-                await supabase.from('maps').insert(payload);
+                const res = await supabase.from('maps').insert(payload).select().single();
+                data = res.data;
             }
 
-            await refreshData(true);
+            if (data) {
+                updateLocalMap(data as MapType);
+            }
+
             resetForm();
         } catch (error) {
             console.error(error);
@@ -512,8 +518,10 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
     const handleDelete = async (id: string) => {
         if (!window.confirm("Are you sure? This will delete the map and all its pins.")) return;
         setLoading(true);
-        await supabase.from('maps').delete().eq('id', id);
-        await refreshData(true);
+        const { error } = await supabase.from('maps').delete().eq('id', id);
+        if (!error) {
+            removeLocalItem('map', id);
+        }
         setLoading(false);
     };
 
@@ -619,7 +627,7 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
 // --- PIN TYPE MANAGER MODAL ---
 interface PinTypeManagerModalProps { isOpen: boolean; onClose: () => void; }
 export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen, onClose }) => {
-    const { pinTypes, refreshData } = useAppContext();
+    const { pinTypes, updateLocalPinType, removeLocalItem } = useAppContext();
     const [editingType, setEditingType] = useState<Partial<PinType> | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     
@@ -642,12 +650,18 @@ export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen
         e.preventDefault();
         setLoading(true);
         const payload = { name, emoji, color };
+        let data;
+
         if (isEditing && editingType?.id) {
-            await supabase.from('pin_types').update(payload).eq('id', editingType.id);
+            const res = await supabase.from('pin_types').update(payload).eq('id', editingType.id).select().single();
+            data = res.data;
         } else {
-            await supabase.from('pin_types').insert(payload);
+            const res = await supabase.from('pin_types').insert(payload).select().single();
+            data = res.data;
         }
-        await refreshData(true);
+
+        if (data) updateLocalPinType(data as PinType);
+
         setLoading(false);
         resetForm();
     };
@@ -655,8 +669,8 @@ export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen
     const handleDelete = async (id: string) => {
         if(!confirm("Delete this pin type? Pins using it may break or disappear.")) return;
         setLoading(true);
-        await supabase.from('pin_types').delete().eq('id', id);
-        await refreshData(true);
+        const { error } = await supabase.from('pin_types').delete().eq('id', id);
+        if(!error) removeLocalItem('pintype', id);
         setLoading(false);
     };
 
@@ -715,7 +729,7 @@ export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen
 // --- CHARACTER MANAGER MODAL ---
 interface CharacterManagerModalProps { isOpen: boolean; onClose: () => void; }
 export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ isOpen, onClose }) => {
-    const { characters, refreshData } = useAppContext();
+    const { characters, updateLocalCharacter, removeLocalItem } = useAppContext();
     const { user } = useAuth();
     const [editingChar, setEditingChar] = useState<Partial<Character> | null>(null);
     const [isEditing, setIsEditing] = useState(false);
@@ -772,20 +786,27 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
             created_by: user.id
         };
 
+        let data;
         if (isEditing && editingChar?.id) {
-            await supabase.from('characters').update(payload).eq('id', editingChar.id);
+            const res = await supabase.from('characters').update(payload).eq('id', editingChar.id).select().single();
+            data = res.data;
         } else {
-            await supabase.from('characters').insert(payload);
+            const res = await supabase.from('characters').insert(payload).select().single();
+            data = res.data;
         }
-        await refreshData(true);
+
+        if (data) updateLocalCharacter(data as Character);
+
         setLoading(false);
         resetForm();
     };
     
     const handleDelete = async (id: string) => {
         if(!confirm("Delete this character?")) return;
-        await supabase.from('characters').delete().eq('id', id);
-        await refreshData(true);
+        setLoading(true);
+        const { error } = await supabase.from('characters').delete().eq('id', id);
+        if (!error) removeLocalItem('character', id);
+        setLoading(false);
     };
 
     return (
@@ -881,7 +902,7 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
 interface PinEditorModalProps {
     pinData: Partial<Pin>;
     onClose: () => void;
-    onSave: () => Promise<void>;
+    onSave: (savedPin?: Pin) => Promise<void>;
 }
 
 export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose, onSave }) => {
@@ -961,13 +982,18 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
             ...(pinData.x_coord !== undefined ? { x_coord: pinData.x_coord, y_coord: pinData.y_coord, map_id: pinData.map_id } : {})
         };
 
+        let result;
         if (pinData.id) {
-            await supabase.from('pins').update(payload).eq('id', pinData.id);
+            result = await supabase.from('pins').update(payload).eq('id', pinData.id).select('*, pin_types(*)').single();
         } else if (user) {
-            await supabase.from('pins').insert({ ...payload, created_by: user.id });
+            result = await supabase.from('pins').insert({ ...payload, created_by: user.id }).select('*, pin_types(*)').single();
         }
         
-        await onSave();
+        if (result?.data) {
+             await onSave(result.data as Pin);
+        } else {
+             await onSave();
+        }
         setLoading(false);
     };
 

@@ -18,6 +18,12 @@ type AppContextType = {
     isPlayerView: boolean;
     refreshData: (silent?: boolean) => Promise<void>;
     setIsPlayerView: React.Dispatch<React.SetStateAction<boolean>>;
+    // Performance: Local Updaters to avoid full refetch
+    updateLocalPin: (pin: Pin) => void;
+    updateLocalMap: (map: MapType) => void;
+    updateLocalCharacter: (char: Character) => void;
+    updateLocalPinType: (pt: PinType) => void;
+    removeLocalItem: (type: 'map'|'pin'|'character'|'pintype', id: string) => void;
 };
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -67,28 +73,32 @@ const Dashboard: React.FC = () => {
         if (!user) return;
         if (!silent) setLoading(true);
 
-        const fetchMaps = supabase.from('maps').select('*');
-        const { data: mapsData, error: mapsError } = await (user.profile.role === 'DM' ? fetchMaps : fetchMaps.eq('is_visible', true));
+        const isDM = user.profile.role === 'DM';
 
-        const { data: pinTypesData, error: pinTypesError } = await supabase.from('pin_types').select('*');
+        // Parallel Fetching for Performance
+        const promises = [
+            // 1. Maps
+            isDM ? supabase.from('maps').select('*') : supabase.from('maps').select('*').eq('is_visible', true),
+            // 2. Pin Types
+            supabase.from('pin_types').select('*'),
+            // 3. Pins (with type join)
+            (isDM && !isPlayerView) 
+                ? supabase.from('pins').select('*, pin_types(*)') 
+                : supabase.from('pins').select('*, pin_types(*)').eq('is_visible', true),
+            // 4. Characters
+            supabase.from('characters').select('*')
+        ];
 
-        if (mapsData) setMaps(mapsData);
-        if (pinTypesData) setPinTypes(pinTypesData);
-        if (mapsError) console.error("Error fetching maps", mapsError);
-        if (pinTypesError) console.error("Error fetching pin types", pinTypesError);
-        
-        // Fetch ALL pins for the wiki search, but map viewer filters by selected map
-        const fetchPins = supabase.from('pins').select('*, pin_types(*)');
-        const { data: pinsData, error: pinsError } = await (user.profile.role === 'DM' && !isPlayerView ? fetchPins : fetchPins.eq('is_visible', true));
-        if (pinsData) setPins(pinsData as Pin[]);
+        const [mapsRes, pinTypesRes, pinsRes, charsRes] = await Promise.all(promises);
 
-        // Fetch Characters
-        const { data: charData, error: charError } = await supabase.from('characters').select('*');
-        if (charData) setCharacters(charData as Character[]);
-        if (charError) {
-             // Swallow error if table doesn't exist yet to prevent app crash on older DBs
-             if(charError.code !== '42P01') console.error("Error fetching characters", charError);
-        }
+        if (mapsRes.data) setMaps(mapsRes.data);
+        if (pinTypesRes.data) setPinTypes(pinTypesRes.data);
+        if (pinsRes.data) setPins(pinsRes.data as Pin[]);
+        if (charsRes.data) setCharacters(charsRes.data as Character[]);
+
+        // Errors
+        if (mapsRes.error) console.error("Maps error", mapsRes.error);
+        if (pinsRes.error) console.error("Pins error", pinsRes.error);
         
         if (!silent) setLoading(false);
     }, [user, isPlayerView]);
@@ -97,16 +107,80 @@ const Dashboard: React.FC = () => {
         refreshData();
     }, [refreshData]);
 
+    // --- Performance: Local Updaters ---
+    const updateLocalPin = (pin: Pin) => {
+        setPins(prev => {
+            const idx = prev.findIndex(p => p.id === pin.id);
+            if (idx >= 0) {
+                const newPins = [...prev];
+                newPins[idx] = pin;
+                return newPins;
+            }
+            return [...prev, pin];
+        });
+        // Also update selected pin if it matches
+        if (selectedPin?.id === pin.id) setSelectedPin(pin);
+    };
+
+    const updateLocalMap = (map: MapType) => {
+        setMaps(prev => {
+            const idx = prev.findIndex(m => m.id === map.id);
+            if (idx >= 0) {
+                const newMaps = [...prev];
+                newMaps[idx] = map;
+                return newMaps;
+            }
+            return [...prev, map];
+        });
+        if (selectedMap?.id === map.id) setSelectedMap(map);
+    };
+
+    const updateLocalCharacter = (char: Character) => {
+        setCharacters(prev => {
+            const idx = prev.findIndex(c => c.id === char.id);
+            if (idx >= 0) {
+                const newChars = [...prev];
+                newChars[idx] = char;
+                return newChars;
+            }
+            return [...prev, char];
+        });
+    };
+
+    const updateLocalPinType = (pt: PinType) => {
+        setPinTypes(prev => {
+            const idx = prev.findIndex(p => p.id === pt.id);
+            if (idx >= 0) {
+                const newPt = [...prev];
+                newPt[idx] = pt;
+                return newPt;
+            }
+            return [...prev, pt];
+        });
+    };
+
+    const removeLocalItem = (type: 'map'|'pin'|'character'|'pintype', id: string) => {
+        if(type === 'map') setMaps(prev => prev.filter(m => m.id !== id));
+        if(type === 'pin') setPins(prev => prev.filter(p => p.id !== id));
+        if(type === 'character') setCharacters(prev => prev.filter(c => c.id !== id));
+        if(type === 'pintype') setPinTypes(prev => prev.filter(p => p.id !== id));
+    };
+    // ------------------------------------
+
     const handleSelectMap = (map: MapType | null) => {
         setSelectedMap(map);
         setSelectedPin(null);
         setHighlightedPinId(null);
-        setCurrentView('map'); // Switch to map view when selecting from sidebar
+        setCurrentView('map');
     };
 
-    const handlePinSave = async () => {
+    const handlePinSave = async (savedPin?: Pin) => {
         setEditingPin(null);
-        await refreshData(true);
+        if (savedPin) {
+            updateLocalPin(savedPin);
+        } else {
+            await refreshData(true);
+        }
     };
     
     const handleMovePin = async (pinId: string, x: number, y: number) => {
@@ -116,15 +190,14 @@ const Dashboard: React.FC = () => {
         const { error } = await supabase.from('pins').update({ x_coord: x, y_coord: y }).eq('id', pinId);
         if (error) {
             console.error("Error moving pin:", error);
-            // Revert on error
-            refreshData(true);
+            refreshData(true); // Only fetch on error
         }
     };
     
     const handleOpenWikiCharacter = (charId: string) => {
         setWikiTarget({ type: 'character', id: charId });
         setCurrentView('wiki');
-        setSelectedPin(null); // Close pin details
+        setSelectedPin(null);
     };
 
     if (loading) {
@@ -132,7 +205,10 @@ const Dashboard: React.FC = () => {
     }
     
     return (
-        <AppContext.Provider value={{ maps, pinTypes, pins, characters, isPlayerView, refreshData, setIsPlayerView }}>
+        <AppContext.Provider value={{ 
+            maps, pinTypes, pins, characters, isPlayerView, refreshData, setIsPlayerView,
+            updateLocalPin, updateLocalMap, updateLocalCharacter, updateLocalPinType, removeLocalItem
+        }}>
             <div className="flex h-screen w-full flex-col md:flex-row overflow-hidden bg-stone-950 text-stone-200">
                 <Sidebar
                     selectedMap={selectedMap}
@@ -150,7 +226,7 @@ const Dashboard: React.FC = () => {
                                     map={selectedMap}
                                     onSelectPin={(pin) => {
                                         setSelectedPin(pin);
-                                        setHighlightedPinId(null); // Clear highlight on user interaction
+                                        setHighlightedPinId(null); 
                                     }}
                                     onAddPin={(coords) => {
                                         if (user?.profile.role === 'DM' && !isPlayerView) {
@@ -185,8 +261,8 @@ const Dashboard: React.FC = () => {
                                 const map = maps.find(m => m.id === pin.map_id);
                                 if(map) {
                                     setSelectedMap(map);
-                                    setHighlightedPinId(pin.id); // Set the highlight
-                                    setSelectedPin(null); // Ensure detail view is closed
+                                    setHighlightedPinId(pin.id); 
+                                    setSelectedPin(null); 
                                     setCurrentView('map');
                                 }
                             }}
