@@ -42,11 +42,11 @@ const Dashboard: React.FC = () => {
     
     // View State
     const [currentView, setCurrentView] = useState<'map' | 'wiki'>('map');
+    
+    // Unified Selection State
     const [selectedMap, setSelectedMap] = useState<MapType | null>(null);
     const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
-    
-    // Wiki Target State (for deep linking)
-    const [wikiTarget, setWikiTarget] = useState<{ type: 'character' | 'map', id: string } | null>(null);
+    const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
 
     // Highlight State (for locating pins from Wiki)
     const [highlightedPinId, setHighlightedPinId] = useState<string | null>(null);
@@ -77,16 +77,18 @@ const Dashboard: React.FC = () => {
 
         // Parallel Fetching for Performance
         const promises = [
-            // 1. Maps
-            isDM ? supabase.from('maps').select('*') : supabase.from('maps').select('*').eq('is_visible', true),
+            // 1. Maps (Sorted Alphabetically by name)
+            isDM 
+                ? supabase.from('maps').select('*').order('name', {ascending: true}) 
+                : supabase.from('maps').select('*').eq('is_visible', true).order('name', {ascending: true}),
             // 2. Pin Types
-            supabase.from('pin_types').select('*'),
-            // 3. Pins (with type join)
+            supabase.from('pin_types').select('*').order('name', {ascending: true}),
+            // 3. Pins (Sorted Alphabetically by title)
             (isDM && !isPlayerView) 
-                ? supabase.from('pins').select('*, pin_types(*)') 
-                : supabase.from('pins').select('*, pin_types(*)').eq('is_visible', true),
-            // 4. Characters
-            supabase.from('characters').select('*')
+                ? supabase.from('pins').select('*, pin_types(*)').order('title', {ascending: true}) 
+                : supabase.from('pins').select('*, pin_types(*)').eq('is_visible', true).order('title', {ascending: true}),
+            // 4. Characters (Sorted Alphabetically by name)
+            supabase.from('characters').select('*').order('name', {ascending: true})
         ];
 
         const [mapsRes, pinTypesRes, pinsRes, charsRes] = await Promise.all(promises);
@@ -111,12 +113,14 @@ const Dashboard: React.FC = () => {
     const updateLocalPin = (pin: Pin) => {
         setPins(prev => {
             const idx = prev.findIndex(p => p.id === pin.id);
+            let newPins = [...prev];
             if (idx >= 0) {
-                const newPins = [...prev];
                 newPins[idx] = pin;
-                return newPins;
+            } else {
+                newPins.push(pin);
             }
-            return [...prev, pin];
+            // Maintain alphabetical sort
+            return newPins.sort((a, b) => a.title.localeCompare(b.title));
         });
         // Also update selected pin if it matches
         if (selectedPin?.id === pin.id) setSelectedPin(pin);
@@ -125,12 +129,14 @@ const Dashboard: React.FC = () => {
     const updateLocalMap = (map: MapType) => {
         setMaps(prev => {
             const idx = prev.findIndex(m => m.id === map.id);
+            let newMaps = [...prev];
             if (idx >= 0) {
-                const newMaps = [...prev];
                 newMaps[idx] = map;
-                return newMaps;
+            } else {
+                newMaps.push(map);
             }
-            return [...prev, map];
+            // Maintain alphabetical sort
+            return newMaps.sort((a, b) => a.name.localeCompare(b.name));
         });
         if (selectedMap?.id === map.id) setSelectedMap(map);
     };
@@ -138,12 +144,14 @@ const Dashboard: React.FC = () => {
     const updateLocalCharacter = (char: Character) => {
         setCharacters(prev => {
             const idx = prev.findIndex(c => c.id === char.id);
+            let newChars = [...prev];
             if (idx >= 0) {
-                const newChars = [...prev];
                 newChars[idx] = char;
-                return newChars;
+            } else {
+                newChars.push(char);
             }
-            return [...prev, char];
+            // Maintain alphabetical sort
+            return newChars.sort((a, b) => a.name.localeCompare(b.name));
         });
     };
 
@@ -165,13 +173,31 @@ const Dashboard: React.FC = () => {
         if(type === 'character') setCharacters(prev => prev.filter(c => c.id !== id));
         if(type === 'pintype') setPinTypes(prev => prev.filter(p => p.id !== id));
     };
+
     // ------------------------------------
 
     const handleSelectMap = (map: MapType | null) => {
         setSelectedMap(map);
         setSelectedPin(null);
+        setSelectedCharacter(null);
         setHighlightedPinId(null);
-        setCurrentView('map');
+    };
+
+    const handleSelectPin = (pin: Pin | null) => {
+        setSelectedPin(pin);
+        setSelectedCharacter(null);
+        // If selecting a pin, we implicitly keep the map selected or select the parent map
+        if (pin) {
+            const parentMap = maps.find(m => m.id === pin.map_id);
+            if(parentMap) setSelectedMap(parentMap);
+        }
+        setHighlightedPinId(null);
+    };
+
+    const handleSelectCharacter = (char: Character | null) => {
+        setSelectedCharacter(char);
+        setSelectedPin(null);
+        setSelectedMap(null);
     };
 
     const handlePinSave = async (savedPin?: Pin) => {
@@ -194,10 +220,15 @@ const Dashboard: React.FC = () => {
         }
     };
     
+    // Called when clicking "Open in Wiki" from a character modal
     const handleOpenWikiCharacter = (charId: string) => {
-        setWikiTarget({ type: 'character', id: charId });
-        setCurrentView('wiki');
-        setSelectedPin(null);
+        const char = characters.find(c => c.id === charId);
+        if (char) {
+            setSelectedCharacter(char);
+            setSelectedMap(null);
+            setSelectedPin(null);
+            setCurrentView('wiki');
+        }
     };
 
     if (loading) {
@@ -212,7 +243,11 @@ const Dashboard: React.FC = () => {
             <div className="flex h-screen w-full flex-col md:flex-row overflow-hidden bg-stone-950 text-stone-200">
                 <Sidebar
                     selectedMap={selectedMap}
+                    selectedPin={selectedPin}
+                    selectedCharacter={selectedCharacter}
                     onSelectMap={handleSelectMap}
+                    onSelectPin={handleSelectPin}
+                    onSelectCharacter={handleSelectCharacter}
                     currentView={currentView}
                     onViewChange={setCurrentView}
                     onDMToolsOpen={() => setDMToolsOpen(true)}
@@ -255,8 +290,13 @@ const Dashboard: React.FC = () => {
                         </>
                     ) : (
                         <Wiki 
-                            target={wikiTarget}
-                            onSelectMap={(map) => handleSelectMap(map)}
+                            selectedMap={selectedMap}
+                            selectedPin={selectedPin}
+                            selectedCharacter={selectedCharacter}
+                            onSelectMap={(map) => {
+                                setSelectedMap(map);
+                                setCurrentView('map');
+                            }}
                             onLocatePin={(pin) => {
                                 const map = maps.find(m => m.id === pin.map_id);
                                 if(map) {

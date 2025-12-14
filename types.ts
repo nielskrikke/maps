@@ -23,6 +23,7 @@ export type Map = {
   pin_scale?: number; // Size of pins in pixels (relative to image)
   is_grid_visible?: boolean; // Whether to show grid overlay
   map_type?: MapTypeEnum; // New field for map classification
+  sort_order?: number;
 };
 
 export type PinType = {

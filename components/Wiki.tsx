@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from './Dashboard';
 import { useAuth } from '../App';
 import { Map as MapType, Pin, Character, Comment } from '../types';
@@ -7,36 +7,18 @@ import { Icon } from './Icons';
 import { supabase } from '../services/supabase';
 
 interface WikiProps {
-    target?: { type: 'character' | 'map', id: string } | null;
+    selectedMap: MapType | null;
+    selectedPin: Pin | null;
+    selectedCharacter: Character | null;
     onSelectMap: (map: MapType) => void;
     onLocatePin: (pin: Pin) => void;
 }
 
-const Wiki: React.FC<WikiProps> = ({ target, onSelectMap, onLocatePin }) => {
+const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter, onSelectMap, onLocatePin }) => {
     const { maps, pins, pinTypes, characters, isPlayerView } = useAppContext();
     const { user } = useAuth();
     const isDM = user?.profile.role === 'DM';
     const canSeeSecrets = isDM && !isPlayerView;
-
-    const [searchQuery, setSearchQuery] = useState('');
-    const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
-    const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
-    const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
-
-    // Handle incoming target prop (deep linking)
-    useEffect(() => {
-        if (target) {
-            if (target.type === 'character') {
-                setSelectedCharacterId(target.id);
-                setSelectedMapId(null);
-                setSelectedPinId(null);
-            } else if (target.type === 'map') {
-                setSelectedMapId(target.id);
-                setSelectedCharacterId(null);
-                setSelectedPinId(null);
-            }
-        }
-    }, [target]);
 
     // Comments State for Characters
     const [characterComments, setCharacterComments] = useState<Comment[]>([]);
@@ -45,12 +27,12 @@ const Wiki: React.FC<WikiProps> = ({ target, onSelectMap, onLocatePin }) => {
 
     // Fetch character comments when a character is selected
     useEffect(() => {
-        if (selectedCharacterId) {
+        if (selectedCharacter) {
             const fetchComments = async () => {
                 const { data, error } = await supabase
                     .from('comments')
                     .select('*, users(username)')
-                    .eq('character_id', selectedCharacterId)
+                    .eq('character_id', selectedCharacter.id)
                     .order('created_at', { ascending: true });
                 if (data) setCharacterComments(data as any);
             };
@@ -58,16 +40,16 @@ const Wiki: React.FC<WikiProps> = ({ target, onSelectMap, onLocatePin }) => {
         } else {
             setCharacterComments([]);
         }
-    }, [selectedCharacterId]);
+    }, [selectedCharacter?.id]);
 
     const handleAddCharacterComment = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newComment.trim() || !selectedCharacterId || !user) return;
+        if (!newComment.trim() || !selectedCharacter || !user) return;
 
         const { data, error } = await supabase
             .from('comments')
             .insert({
-                character_id: selectedCharacterId,
+                character_id: selectedCharacter.id,
                 user_id: user.id,
                 text: newComment,
                 is_private: isPrivateComment
@@ -80,70 +62,13 @@ const Wiki: React.FC<WikiProps> = ({ target, onSelectMap, onLocatePin }) => {
         setIsPrivateComment(false);
     };
 
-    const handleNavigateToCharacter = (charId: string) => {
-        setSelectedCharacterId(charId);
-        setSelectedMapId(null);
-        setSelectedPinId(null);
-    };
+    // Get pins for the currently active map (to display in content area)
+    const activeMapPins = selectedMap 
+        ? pins.filter(p => p.map_id === selectedMap.id).sort((a,b) => a.title.localeCompare(b.title))
+        : [];
 
-    // Filter Logic for Maps
-    const filteredMaps = useMemo(() => {
-        const lowerQ = searchQuery.toLowerCase();
-        
-        // Ensure hidden maps are filtered out in player view
-        const availableMaps = (isDM && !isPlayerView) ? maps : maps.filter(m => m.is_visible);
-
-        return availableMaps.map(map => {
-            // Pins are already filtered by context in Dashboard.tsx based on isPlayerView
-            const mapPins = pins.filter(p => p.map_id === map.id);
-            let matchesMap = !searchQuery || map.name.toLowerCase().includes(lowerQ);
-            
-            const matchingPins = mapPins.filter(pin => {
-                if (!searchQuery) return true;
-                if (pin.title.toLowerCase().includes(lowerQ)) return true;
-                if (pin.data.description?.toLowerCase().includes(lowerQ)) return true;
-                return pin.data.sections?.some(s => 
-                    s.title.toLowerCase().includes(lowerQ) || 
-                    s.content.toLowerCase().includes(lowerQ) ||
-                    (s.type === 'list' && s.list_items?.some(i => i.toLowerCase().includes(lowerQ)))
-                );
-            });
-
-            if (searchQuery && !matchesMap && matchingPins.length === 0) return null;
-
-            return {
-                map,
-                pins: matchingPins
-            };
-        }).filter(Boolean) as { map: MapType, pins: Pin[] }[];
-
-    }, [maps, pins, searchQuery, isDM, isPlayerView]);
-
-    // Filter Logic for Characters
-    const filteredCharacters = useMemo(() => {
-        const lowerQ = searchQuery.toLowerCase();
-        // Determine visibility based on Role and isPlayerView toggle
-        const availableChars = (isDM && !isPlayerView) 
-            ? characters 
-            : characters.filter(c => c.is_visible); // Only show unlocked chars to players
-
-        return availableChars.filter(c => 
-            !searchQuery || 
-            c.name.toLowerCase().includes(lowerQ) || 
-            c.role_details?.race.toLowerCase().includes(lowerQ) ||
-            c.role_details?.class.toLowerCase().includes(lowerQ)
-        );
-    }, [characters, searchQuery, isDM, isPlayerView]);
-
-    const activeMapData = selectedMapId ? filteredMaps.find(c => c.map.id === selectedMapId) : null;
-    const activePin = selectedPinId ? pins.find(p => p.id === selectedPinId) : null;
-    const activePinMap = activePin ? maps.find(m => m.id === activePin.map_id) : null;
-    const activeCharacter = selectedCharacterId ? characters.find(c => c.id === selectedCharacterId) : null;
-
-    // Helper to get character relationships
     const getCharacterName = (id: string) => characters.find(c => c.id === id)?.name || "Unknown";
 
-    // Helper to render a character list (used in Pin and Map views)
     const CharacterPresenceList: React.FC<{ chars: Character[], title: string }> = ({ chars, title }) => {
         if (chars.length === 0) return null;
         return (
@@ -153,19 +78,15 @@ const Wiki: React.FC<WikiProps> = ({ target, onSelectMap, onLocatePin }) => {
                 </h3>
                 <div className="flex flex-wrap gap-4">
                     {chars.map(c => (
-                        <button 
-                            key={c.id} 
-                            onClick={() => handleNavigateToCharacter(c.id)} 
-                            className="flex items-center gap-3 bg-stone-800 hover:bg-stone-700 p-2 rounded-xl border border-stone-700 hover:border-amber-500/50 transition-all group min-w-[150px]"
-                        >
-                            <div className="w-10 h-10 rounded-full bg-stone-900 overflow-hidden ring-2 ring-stone-700 group-hover:ring-amber-500/50 transition-all">
+                        <div key={c.id} className="flex items-center gap-3 bg-stone-800 p-2 rounded-xl border border-stone-700 min-w-[150px]">
+                            <div className="w-10 h-10 rounded-full bg-stone-900 overflow-hidden ring-2 ring-stone-700">
                                 {c.image_url ? <img src={c.image_url} className="w-full h-full object-cover" alt={c.name}/> : <div className="w-full h-full flex items-center justify-center text-stone-600"><Icon name="user" className="w-5 h-5"/></div>}
                             </div>
                             <div className="text-left">
-                                <p className="text-sm font-bold text-stone-200 group-hover:text-amber-400 truncate max-w-[120px]">{c.name}</p>
+                                <p className="text-sm font-bold text-stone-200 truncate max-w-[120px]">{c.name}</p>
                                 <p className="text-[10px] text-stone-500 uppercase tracking-wider">{c.role_details?.race}</p>
                             </div>
-                        </button>
+                        </div>
                     ))}
                 </div>
             </div>
@@ -177,6 +98,7 @@ const Wiki: React.FC<WikiProps> = ({ target, onSelectMap, onLocatePin }) => {
     const renderPinContent = (pin: Pin) => {
         const type = pinTypes.find(t => t.id === pin.pin_type_id);
         const charactersAtPin = characters.filter(c => c.current_pin_id === pin.id && ((isDM && !isPlayerView) || c.is_visible));
+        const pinMap = maps.find(m => m.id === pin.map_id);
         
         return (
             <div className="space-y-8 animate-modal-in max-w-4xl mx-auto pb-20">
@@ -190,7 +112,7 @@ const Wiki: React.FC<WikiProps> = ({ target, onSelectMap, onLocatePin }) => {
                             <h1 className="text-4xl font-medieval font-bold text-stone-100">{pin.title}</h1>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className="bg-stone-800/50 px-2 py-0.5 rounded text-xs text-stone-400 border border-stone-700 uppercase tracking-wider">{type?.name || 'Unknown'}</span>
-                                {activePinMap && <span className="text-stone-500 text-sm flex items-center gap-1"><Icon name="map" className="w-3 h-3"/> {activePinMap.name}</span>}
+                                {pinMap && <span className="text-stone-500 text-sm flex items-center gap-1"><Icon name="map" className="w-3 h-3"/> {pinMap.name}</span>}
                             </div>
                         </div>
                         <button 
@@ -414,113 +336,27 @@ const Wiki: React.FC<WikiProps> = ({ target, onSelectMap, onLocatePin }) => {
     // --- Main Layout ---
     return (
         <div className="flex h-full w-full bg-stone-950 text-stone-200">
-            {/* Left Sidebar: Index */}
-            <div className="w-80 border-r border-stone-700/50 flex flex-col bg-stone-900/30 backdrop-blur-sm">
-                <div className="p-4 border-b border-stone-700/50">
-                    <h2 className="text-amber-500 font-medieval text-xl mb-3 flex items-center gap-2">
-                        <Icon name="book" className="w-5 h-5"/>
-                        Wiki
-                    </h2>
-                    <div className="relative">
-                        <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
-                        <input 
-                            type="text" 
-                            placeholder="Search everything..." 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-stone-900/50 border border-stone-700 rounded-lg pl-9 pr-3 py-2 text-sm text-stone-200 focus:border-amber-500 focus:outline-none placeholder-stone-600"
-                        />
-                    </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-4">
-                    
-                    {/* CHARACTERS SECTION */}
-                    {filteredCharacters.length > 0 && (
-                        <div>
-                             <h3 className="px-3 text-xs font-bold uppercase text-stone-500 mb-2 mt-2">Characters</h3>
-                            {filteredCharacters.map(char => (
-                                <button
-                                    key={char.id}
-                                    onClick={() => { setSelectedCharacterId(char.id); setSelectedMapId(null); setSelectedPinId(null); }}
-                                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-colors mb-1 ${selectedCharacterId === char.id ? 'bg-amber-900/20 text-amber-400 border border-amber-500/30' : 'hover:bg-stone-800/50 text-stone-300 border border-transparent'}`}
-                                >
-                                    <div className="w-8 h-8 rounded-full bg-stone-800 overflow-hidden flex-shrink-0">
-                                        {char.image_url ? <img src={char.image_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Icon name="user" className="w-4 h-4"/></div>}
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="font-medium truncate text-sm">{char.name}</div>
-                                        <div className="text-[10px] text-stone-500 truncate">{char.role_details?.race} {char.role_details?.class}</div>
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* MAPS SECTION */}
-                    {filteredMaps.length > 0 && (
-                        <div>
-                            <h3 className="px-3 text-xs font-bold uppercase text-stone-500 mb-2 mt-2">Locations</h3>
-                            {filteredMaps.map(({ map, pins }) => (
-                                <div key={map.id} className="rounded-xl overflow-hidden border border-transparent mb-1">
-                                    <button 
-                                        onClick={() => { setSelectedMapId(map.id); setSelectedPinId(null); setSelectedCharacterId(null); }}
-                                        className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${selectedMapId === map.id && !selectedPinId ? 'bg-amber-900/20 text-amber-400 border-amber-500/30' : 'hover:bg-stone-800/50 text-stone-300'}`}
-                                    >
-                                        <Icon name="map" className="w-4 h-4 opacity-70"/>
-                                        <span className="font-medium truncate">{map.name}</span>
-                                    </button>
-                                    
-                                    {(selectedMapId === map.id || searchQuery) && (
-                                        <div className="pl-4 border-l border-stone-800 ml-4 mt-1 space-y-0.5">
-                                            {pins.map(pin => (
-                                                <button 
-                                                    key={pin.id}
-                                                    onClick={() => { setSelectedMapId(map.id); setSelectedPinId(pin.id); setSelectedCharacterId(null); }}
-                                                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm rounded-lg transition-colors ${selectedPinId === pin.id ? 'bg-stone-800 text-white' : 'text-stone-500 hover:text-stone-300 hover:bg-stone-800/30'}`}
-                                                >
-                                                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: pinTypes.find(t => t.id === pin.pin_type_id)?.color }}></span>
-                                                    <span className="truncate">{pin.title}</span>
-                                                </button>
-                                            ))}
-                                            {pins.length === 0 && <p className="px-3 py-1 text-xs text-stone-600 italic">No pins found</p>}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {filteredCharacters.length === 0 && filteredMaps.length === 0 && (
-                         <div className="text-center text-stone-600 text-sm py-8">
-                            <Icon name="search" className="w-8 h-8 mx-auto mb-2 opacity-50"/>
-                            <p>No results found.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-
             {/* Right Pane: Content */}
             <div className="flex-1 overflow-y-auto custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]">
                 <div className="p-8 md:p-12 min-h-full">
-                    {selectedPinId && activePin ? (
-                        renderPinContent(activePin)
-                    ) : selectedCharacterId && activeCharacter ? (
-                        renderCharacterContent(activeCharacter)
-                    ) : selectedMapId && activeMapData ? (
+                    {selectedPin ? (
+                        renderPinContent(selectedPin)
+                    ) : selectedCharacter ? (
+                        renderCharacterContent(selectedCharacter)
+                    ) : selectedMap ? (
                         <div className="max-w-4xl mx-auto space-y-8 animate-modal-in">
                             <div className="flex items-center gap-4 border-b border-stone-700/50 pb-6">
                                 <div className="w-20 h-20 rounded-2xl overflow-hidden ring-2 ring-stone-700 shadow-2xl bg-stone-900">
-                                    <img src={activeMapData.map.image_url} className="w-full h-full object-cover" alt={activeMapData.map.name} />
+                                    <img src={selectedMap.image_url} className="w-full h-full object-cover" alt={selectedMap.name} />
                                 </div>
                                 <div>
-                                    <h1 className="text-5xl font-medieval font-bold text-amber-500">{activeMapData.map.name}</h1>
+                                    <h1 className="text-5xl font-medieval font-bold text-amber-500">{selectedMap.name}</h1>
                                     <p className="text-stone-500 mt-1 uppercase tracking-widest text-sm font-bold flex items-center gap-2">
-                                        <span className="capitalize">{activeMapData.map.map_type?.replace('_', ' ') || 'Region'} Map</span>
+                                        <span className="capitalize">{selectedMap.map_type?.replace('_', ' ') || 'Region'} Map</span>
                                     </p>
                                 </div>
                                 <button 
-                                    onClick={() => onSelectMap(activeMapData.map)}
+                                    onClick={() => onSelectMap(selectedMap)}
                                     className="ml-auto flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white px-6 py-3 rounded-xl shadow-lg transition-all font-bold"
                                 >
                                     <Icon name="map" className="w-5 h-5"/>
@@ -529,14 +365,14 @@ const Wiki: React.FC<WikiProps> = ({ target, onSelectMap, onLocatePin }) => {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {activeMapData.pins.map(pin => {
+                                {activeMapPins.map(pin => {
                                     const type = pinTypes.find(t => t.id === pin.pin_type_id);
                                     const charsAtPin = characters.filter(c => c.current_pin_id === pin.id && ((isDM && !isPlayerView) || c.is_visible));
 
                                     return (
                                         <button 
                                             key={pin.id}
-                                            onClick={() => setSelectedPinId(pin.id)}
+                                            onClick={() => onLocatePin(pin)} // Since we are in wiki, locate simply selects the pin to view
                                             className="bg-stone-800/40 hover:bg-stone-800 border border-stone-700/30 hover:border-amber-500/50 p-4 rounded-xl text-left transition-all group flex flex-col gap-3"
                                         >
                                             <div className="flex items-center gap-3">
@@ -579,6 +415,7 @@ const Wiki: React.FC<WikiProps> = ({ target, onSelectMap, onLocatePin }) => {
                                         </button>
                                     );
                                 })}
+                                {activeMapPins.length === 0 && <p className="col-span-full text-stone-600 italic text-center py-10">No pins on this map yet.</p>}
                             </div>
                         </div>
                     ) : (
@@ -586,7 +423,7 @@ const Wiki: React.FC<WikiProps> = ({ target, onSelectMap, onLocatePin }) => {
                             <Icon name="book" className="w-24 h-24"/>
                             <div className="text-center">
                                 <h2 className="text-3xl font-medieval text-stone-400">The Archives</h2>
-                                <p className="mt-2">Select a location or character from the left to begin reading.</p>
+                                <p className="mt-2">Select a location or character from the sidebar to begin reading.</p>
                             </div>
                         </div>
                     )}
