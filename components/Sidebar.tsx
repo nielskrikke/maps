@@ -237,8 +237,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     return (
         <aside className="flex h-full w-full flex-col md:w-80 bg-stone-900/80 backdrop-blur-xl border-r border-stone-700/50 p-4 shadow-2xl z-20">
-            <div className="flex items-center justify-between mb-4">
-                <h1 className="text-2xl font-medieval font-bold text-amber-500 drop-shadow-sm">D&D World Map</h1>
+            <div className="flex items-center gap-3 mb-6 px-1">
+                <img src="https://nielskrikke.com/wp-content/uploads/2025/12/maps-app-icon-v2.png" alt="World Atlas" className="w-10 h-10 rounded-xl shadow-lg border border-stone-600/50" />
+                <h1 className="text-2xl font-medieval font-bold text-amber-500 drop-shadow-sm">World Atlas</h1>
             </div>
 
             {/* Mode Switcher */}

@@ -57,12 +57,14 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ authError, onAuthAttempt }) => 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-stone-950">
       <div className="w-full max-w-md bg-stone-900/60 backdrop-blur-2xl border border-stone-700/50 shadow-2xl rounded-3xl p-8 animate-modal-in">
-        <div className="text-center mb-8">
-          <div className="inline-block p-3 bg-amber-600/20 border border-amber-600/30 rounded-full mb-4 shadow-[0_0_15px_rgba(217,119,6,0.2)]">
-            <Icon name="shield" className="w-8 h-8 text-amber-500" />
-          </div>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <img 
+            src="https://nielskrikke.com/wp-content/uploads/2025/12/maps-app-icon-v2.png" 
+            alt="World Atlas Logo" 
+            className="w-20 h-20 mb-4 rounded-2xl shadow-lg border-2 border-amber-600/30"
+          />
           <h1 className="text-4xl font-medieval font-bold mb-2 text-amber-500 drop-shadow-md">
-            D&D World Map
+            World Atlas
           </h1>
           <p className="text-stone-400">
             Enter your username to log in
