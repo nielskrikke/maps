@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-dnd-dark: #151515;
+  --color-dnd-panel: #1c1c1c;
+  --color-dnd-text: #e0e0e0;
+  --color-dnd-gold: #c9ad6a;
+  --color-dnd-red: #8a0b0b;
+  
+  --font-serif: "Georgia", "Cambria", "Times New Roman", serif;
+  --font-sans: "Inter", "system-ui", "sans-serif";
+}
+
+@layer base {
+  body {
+    @apply bg-dnd-dark text-dnd-text font-sans antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif font-bold tracking-tight text-white;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-dnd-panel/80 backdrop-blur-md border border-white/5 rounded-xl shadow-xl;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-dnd-dark;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-[#373a40] rounded-full;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-dnd-gold;
+  }
+}

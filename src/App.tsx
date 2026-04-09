@@ -135,8 +135,13 @@ const App: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-stone-950">
-        <Icon name="spinner" className="h-12 w-12 animate-spin text-amber-500" />
+      <div className="flex h-screen w-full items-center justify-center bg-dnd-dark">
+        <div className="relative">
+          <Icon name="spinner" className="h-16 w-16 animate-spin text-dnd-gold opacity-20" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-2 h-2 bg-dnd-gold rounded-full animate-pulse shadow-[0_0_15px_rgba(201,173,106,0.5)]" />
+          </div>
+        </div>
       </div>
     );
   }

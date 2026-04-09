@@ -1,9 +1,11 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Map as MapType, Pin } from '../types';
-import { useAppContext } from './Dashboard';
+import { useAppContext } from '../contexts/AppContext';
 import { useAuth } from '../App';
 import { Icon } from './Icons';
+import { cn } from '../lib/utils';
 
 interface MapViewerProps {
     map: MapType;
@@ -159,8 +161,6 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
             const mouseY = e.clientY - rect.top;
 
             // Inverse transform to get image coordinates
-            // screen = image * scale + trans
-            // image = (screen - trans) / scale
             let imgX = (mouseX - viewState.x) / viewState.scale;
             let imgY = (mouseY - viewState.y) / viewState.scale;
 
@@ -233,7 +233,7 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
     return (
         <div 
             ref={containerRef}
-            className="h-full w-full overflow-hidden bg-stone-950 relative"
+            className="h-full w-full overflow-hidden bg-dnd-dark relative"
             style={{ cursor: cursorStyle }}
             onWheel={handleWheel}
             onMouseDown={handleMouseDown}
@@ -251,11 +251,11 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
                 }}
                 onClick={handleMapClick}
             >
-                <img src={map.image_url} alt={map.name} className="pointer-events-none w-full h-full absolute top-0 left-0" />
+                <img src={map.image_url} alt={map.name} className="pointer-events-none w-full h-full absolute top-0 left-0" referrerPolicy="no-referrer" />
                 
                 {showGrid && (
                     <div 
-                        className="grid-overlay absolute inset-0 pointer-events-none opacity-30"
+                        className="grid-overlay absolute inset-0 pointer-events-none opacity-10"
                         style={{
                             backgroundSize: `${gridSize}px ${gridSize}px`,
                             backgroundImage: `
@@ -277,13 +277,18 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
                     const displayY = isDragging && dragPosition ? dragPosition.y : pin.y_coord;
 
                     return (
-                        <div
+                        <motion.div
                             key={pin.id}
+                            layoutId={`pin-${pin.id}`}
                             onMouseDown={(e) => handlePinMouseDown(e, pin.id, pin.x_coord, pin.y_coord)}
                             onClick={(e) => { e.stopPropagation(); if(!isDragging) onSelectPin(pin); }}
                             onMouseEnter={() => setHoveredPinId(pin.id)}
                             onMouseLeave={() => setHoveredPinId(null)}
-                            className={`absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-shadow focus:outline-none shadow-lg shadow-black/50 ${isHighlighted ? 'ring-4 ring-amber-500 ring-offset-2 ring-offset-black z-50 animate-pulse' : 'hover:brightness-110 focus:ring-2 focus:ring-white hover:z-50'} ${canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+                            className={cn(
+                                "absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-shadow focus:outline-none shadow-2xl",
+                                isHighlighted ? 'ring-4 ring-dnd-gold ring-offset-2 ring-offset-black z-50' : 'hover:brightness-110 focus:ring-2 focus:ring-white hover:z-50',
+                                canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                            )}
                             style={{ 
                                 left: `${displayX * 100}%`, 
                                 top: `${displayY * 100}%`,
@@ -296,95 +301,102 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
                             }}
                             title={pin.title}
                         >
-                            <span className="drop-shadow-md leading-none select-none pointer-events-none">
+                            <span className="drop-shadow-lg leading-none select-none pointer-events-none">
                                 {pinType?.emoji || '📍'}
                             </span>
-                        </div>
+                        </motion.div>
                     );
                 })}
 
                 {/* Hover Preview Tooltip */}
-                {hoveredPinId && !draggingPinId && (() => {
-                    const pin = pins.find(p => p.id === hoveredPinId);
-                    if (!pin || pin.map_id !== map.id) return null;
-                    const pinType = getPinType(pin.pin_type_id);
-                    const charsHere = characters.filter(c => c.current_pin_id === pin.id && ((isDM && !isPlayerView) || c.is_visible));
+                <AnimatePresence>
+                    {hoveredPinId && !draggingPinId && (() => {
+                        const pin = pins.find(p => p.id === hoveredPinId);
+                        if (!pin || pin.map_id !== map.id) return null;
+                        const pinType = getPinType(pin.pin_type_id);
+                        const charsHere = characters.filter(c => c.current_pin_id === pin.id && ((isDM && !isPlayerView) || c.is_visible));
 
-                    return (
-                        <div
-                            className="absolute pointer-events-none z-[100] flex flex-col items-center"
-                            style={{
-                                left: `${pin.x_coord * 100}%`,
-                                top: `${pin.y_coord * 100}%`,
-                                // Inverse scaling logic:
-                                // 1. Center transform origin (bottom center)
-                                // 2. Translate up to clear pin (-pinSize/2 - 10px spacing)
-                                // 3. Inverse scale (1/viewState.scale) to keep constant visual size
-                                transform: `translate(-50%, -100%) translateY(${-pinSize/2 - 12}px) scale(${1 / viewState.scale})`,
-                                transformOrigin: 'bottom center',
-                            }}
-                        >
-                            <div className="bg-stone-900/95 backdrop-blur-xl border border-amber-500/30 p-4 rounded-xl shadow-2xl flex flex-col items-center gap-2 min-w-[160px] animate-modal-in">
-                                <div className="text-center">
-                                    <h3 className="font-medieval text-amber-500 text-xl leading-none whitespace-nowrap drop-shadow-md">{pin.title}</h3>
-                                    <span className="text-[10px] uppercase text-stone-500 font-bold tracking-widest mt-1 block">{pinType?.name}</span>
-                                </div>
-                                
-                                {charsHere.length > 0 && (
-                                    <div className="flex items-center justify-center -space-x-2 pt-2 pb-1">
-                                        {charsHere.slice(0, 5).map(c => (
-                                            <div key={c.id} className="w-8 h-8 rounded-full border-2 border-stone-800 bg-stone-900 overflow-hidden relative z-0 shadow-sm">
-                                                {c.image_url ? 
-                                                    <img src={c.image_url} className="w-full h-full object-cover" alt={c.name} /> : 
-                                                    <div className="w-full h-full flex items-center justify-center text-xs text-stone-500 font-bold">{c.name[0]}</div>
-                                                }
-                                            </div>
-                                        ))}
-                                        {charsHere.length > 5 && (
-                                            <div className="w-8 h-8 rounded-full border-2 border-stone-800 bg-stone-800 flex items-center justify-center text-[10px] text-stone-400 font-bold z-10 shadow-sm">
-                                                +{charsHere.length - 5}
-                                            </div>
-                                        )}
+                        return (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                                className="absolute pointer-events-none z-[100] flex flex-col items-center"
+                                style={{
+                                    left: `${pin.x_coord * 100}%`,
+                                    top: `${pin.y_coord * 100}%`,
+                                    transform: `translate(-50%, -100%) translateY(${-pinSize/2 - 12}px) scale(${1 / viewState.scale})`,
+                                    transformOrigin: 'bottom center',
+                                }}
+                            >
+                                <div className="glass-panel p-2.5 rounded-xl shadow-2xl flex flex-col items-center gap-2 min-w-[140px]">
+                                    <div className="text-center">
+                                        <h3 className="font-serif text-white text-base font-bold leading-tight whitespace-nowrap">{pin.title}</h3>
+                                        <span className="text-[9px] uppercase text-dnd-gold font-bold tracking-widest mt-0.5 block">{pinType?.name}</span>
                                     </div>
-                                )}
-                            </div>
-                            {/* Arrow Pointer */}
-                            <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-amber-500/30 translate-y-[-1px]" />
-                        </div>
-                    );
-                })()}
+                                    
+                                    {charsHere.length > 0 && (
+                                        <div className="flex items-center justify-center -space-x-1.5 pt-1">
+                                            {charsHere.slice(0, 5).map(c => (
+                                                <div key={c.id} className="w-8 h-8 rounded-full border-2 border-dnd-dark bg-dnd-panel overflow-hidden relative z-0 shadow-lg">
+                                                    {c.image_url ? 
+                                                        <img src={c.image_url} className="w-full h-full object-cover" alt={c.name} referrerPolicy="no-referrer" /> : 
+                                                        <div className="w-full h-full flex items-center justify-center text-[10px] text-dnd-text/40 font-bold">{c.name[0]}</div>
+                                                    }
+                                                </div>
+                                            ))}
+                                            {charsHere.length > 5 && (
+                                                <div className="w-8 h-8 rounded-full border-2 border-dnd-dark bg-dnd-panel flex items-center justify-center text-[9px] text-dnd-gold font-bold z-10 shadow-lg">
+                                                    +{charsHere.length - 5}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                {/* Arrow Pointer */}
+                                <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-white/10 translate-y-[-1px]" />
+                            </motion.div>
+                        );
+                    })()}
+                </AnimatePresence>
             </div>
 
             {/* Controls */}
-             <div className="absolute bottom-6 right-6 flex flex-col gap-4 z-10">
+             <div className="absolute bottom-4 right-4 flex flex-col gap-3 z-10">
                 {canEdit && (
-                    <div className="flex flex-col gap-1 p-1 rounded-xl bg-stone-900/80 backdrop-blur-lg border border-stone-700/50 shadow-xl">
+                    <div className="flex flex-col gap-1 p-1 rounded-xl bg-dnd-panel/80 backdrop-blur-md border border-white/5 shadow-2xl">
                         <button 
                             onClick={() => setInteractionMode('pan')} 
-                            className={`p-2 rounded-lg transition-colors ${interactionMode === 'pan' ? 'bg-amber-600 text-white' : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800'}`}
+                            className={cn(
+                                "p-2 rounded-lg transition-all",
+                                interactionMode === 'pan' ? 'bg-dnd-gold text-white shadow-lg shadow-dnd-gold/20' : 'text-dnd-text/40 hover:text-white hover:bg-white/5'
+                            )}
                             title="Pan Mode"
                         >
-                            <Icon name="hand" className="w-5 h-5"/>
+                            <Icon name="hand" className="w-4 h-4"/>
                         </button>
                         <button 
                             onClick={() => setInteractionMode('pin')} 
-                            className={`p-2 rounded-lg transition-colors ${interactionMode === 'pin' ? 'bg-amber-600 text-white' : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800'}`}
+                            className={cn(
+                                "p-2 rounded-lg transition-all",
+                                interactionMode === 'pin' ? 'bg-dnd-gold text-white shadow-lg shadow-dnd-gold/20' : 'text-dnd-text/40 hover:text-white hover:bg-white/5'
+                            )}
                             title="Add Pin Mode"
                         >
-                            <Icon name="pin" className="w-5 h-5"/>
+                            <Icon name="pin" className="w-4 h-4"/>
                         </button>
                     </div>
                 )}
 
-                <div className="flex flex-col gap-1 p-1 rounded-xl bg-stone-900/80 backdrop-blur-lg border border-stone-700/50 shadow-xl">
-                    <button onClick={zoomIn} className="p-2 rounded-lg text-stone-300 hover:text-amber-500 hover:bg-stone-800 transition-colors" title="Zoom In">
-                        <Icon name="plus" className="w-5 h-5"/>
+                <div className="flex flex-col gap-1 p-1 rounded-xl bg-dnd-panel/80 backdrop-blur-md border border-white/5 shadow-2xl">
+                    <button onClick={zoomIn} className="p-2 rounded-lg text-dnd-text/60 hover:text-dnd-gold hover:bg-white/5 transition-all" title="Zoom In">
+                        <Icon name="plus" className="w-4 h-4"/>
                     </button>
-                    <button onClick={resetView} className="p-2 rounded-lg text-stone-300 hover:text-amber-500 hover:bg-stone-800 transition-colors" title="Center View">
-                        <Icon name="center" className="w-5 h-5"/>
+                    <button onClick={resetView} className="p-2 rounded-lg text-dnd-text/60 hover:text-dnd-gold hover:bg-white/5 transition-all" title="Center View">
+                        <Icon name="center" className="w-4 h-4"/>
                     </button>
-                    <button onClick={zoomOut} className="p-2 rounded-lg text-stone-300 hover:text-amber-500 hover:bg-stone-800 transition-colors" title="Zoom Out">
-                        <Icon name="minus" className="w-5 h-5"/>
+                    <button onClick={zoomOut} className="p-2 rounded-lg text-dnd-text/60 hover:text-dnd-gold hover:bg-white/5 transition-all" title="Zoom Out">
+                        <Icon name="minus" className="w-4 h-4"/>
                     </button>
                 </div>
              </div>
