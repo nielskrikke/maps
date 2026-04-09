@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../App';
 import { Map as MapType, Pin, PinType, Character } from '../types';
 import { supabase } from '../services/supabase';

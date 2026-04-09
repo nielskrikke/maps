@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Map as MapType, Pin } from '../types';
 import { useAppContext } from '../contexts/AppContext';
 import { useAuth } from '../App';

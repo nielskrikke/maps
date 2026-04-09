@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Pin, Comment, PinSection, Character } from '../types';
 import { useAuth } from '../App';
 import { useAppContext } from '../contexts/AppContext';

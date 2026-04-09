@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase, supabaseUrl, supabaseAnonKey, uploadFile } from '../services/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { useAuth } from '../App';
