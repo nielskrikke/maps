@@ -11,10 +11,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.78.0",
-    "@tailwindcss/vite": "^4.2.2",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "tailwindcss": "^4.2.2"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
