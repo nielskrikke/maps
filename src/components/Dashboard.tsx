@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../App';
 import { Map as MapType, Pin, PinType, Character } from '../types';
 import { supabase } from '../services/supabase';
@@ -226,34 +225,27 @@ const Dashboard: React.FC = () => {
             updateLocalPin, updateLocalMap, updateLocalCharacter, updateLocalPinType, removeLocalItem
         }}>
             <div className="flex h-screen w-full flex-col md:flex-row overflow-hidden bg-dnd-dark text-dnd-text">
-                <AnimatePresence>
-                    {error && (
-                        <motion.div 
-                            initial={{ opacity: 0, y: -20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-md px-4"
-                        >
-                            <div className="bg-dnd-red/90 backdrop-blur-xl border border-dnd-red/30 p-4 rounded-2xl shadow-2xl flex items-start gap-4">
-                                <div className="p-2 bg-dnd-red/20 rounded-xl text-white">
-                                    <Icon name="skull" className="w-5 h-5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <h4 className="text-white font-bold text-sm tracking-tight">{error.message}</h4>
-                                    <p className="text-white/70 text-xs mt-1 font-medium leading-relaxed truncate">
-                                        {typeof error.details === 'string' ? error.details : (error.details?.message || "An unexpected disturbance in the weave occurred.")}
-                                    </p>
-                                </div>
-                                <button 
-                                    onClick={() => setError(null)}
-                                    className="p-1 text-white/40 hover:text-white transition-colors"
-                                >
-                                    <Icon name="close" className="w-4 h-4" />
-                                </button>
+                {error && (
+                    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-md px-4">
+                        <div className="bg-dnd-red/90 backdrop-blur-xl border border-dnd-red/30 p-4 rounded-2xl shadow-2xl flex items-start gap-4">
+                            <div className="p-2 bg-dnd-red/20 rounded-xl text-white">
+                                <Icon name="skull" className="w-5 h-5" />
                             </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                            <div className="flex-1 min-w-0">
+                                <h4 className="text-white font-bold text-sm tracking-tight">{error.message}</h4>
+                                <p className="text-white/70 text-xs mt-1 font-medium leading-relaxed truncate">
+                                    {typeof error.details === 'string' ? error.details : (error.details?.message || "An unexpected disturbance in the weave occurred.")}
+                                </p>
+                            </div>
+                            <button 
+                                onClick={() => setError(null)}
+                                className="p-1 text-white/40 hover:text-white transition-colors"
+                            >
+                                <Icon name="close" className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
                 <Sidebar
                     selectedMap={selectedMap}
                     selectedPin={selectedPin}
@@ -267,100 +259,89 @@ const Dashboard: React.FC = () => {
                     onUserSettingsOpen={() => setUserSettingsOpen(true)}
                 />
                 <main className="relative flex-1 p-2 md:p-4 overflow-hidden">
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={currentView}
-                            initial={{ opacity: 0, scale: 0.98 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 1.02 }}
-                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                            className="h-full w-full glass-panel overflow-hidden relative"
-                        >
-                            {currentView === 'map' ? (
-                                <>
-                                    {selectedMap ? (
-                                        <MapViewer
-                                            map={selectedMap}
-                                            onSelectPin={(pin) => {
-                                                setSelectedPin(pin);
-                                                setHighlightedPinId(null); 
-                                            }}
-                                            onAddPin={(coords) => {
-                                                if (user?.profile.role === 'DM' && !isPlayerView) {
-                                                    setEditingPin({ x_coord: coords.x, y_coord: coords.y, map_id: selectedMap.id });
-                                                    setHighlightedPinId(null);
-                                                }
-                                            }}
-                                            onMovePin={handleMovePin}
-                                            highlightedPinId={highlightedPinId}
-                                        />
-                                    ) : (
-                                        <div className="flex h-full w-full items-center justify-center text-dnd-text/30">
-                                            <div className="text-center">
-                                                <Icon name="map" className="mx-auto h-24 w-24 opacity-10 mb-6" />
-                                                <h2 className="text-3xl font-serif mb-2">Atlas</h2>
-                                                <p className="text-lg">Select a map from the sidebar to begin your exploration</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <PinDetails 
-                                        pin={selectedPin} 
-                                        onClose={() => setSelectedPin(null)} 
-                                        onEdit={(pin) => setEditingPin(pin)}
-                                        mapId={selectedMap?.id}
-                                        onOpenWiki={handleOpenWikiCharacter}
+                    <div className="h-full w-full glass-panel overflow-hidden relative">
+                        {currentView === 'map' ? (
+                            <>
+                                {selectedMap ? (
+                                    <MapViewer
+                                        map={selectedMap}
+                                        onSelectPin={(pin) => {
+                                            setSelectedPin(pin);
+                                            setHighlightedPinId(null); 
+                                        }}
+                                        onAddPin={(coords) => {
+                                            if (user?.profile.role === 'DM' && !isPlayerView) {
+                                                setEditingPin({ x_coord: coords.x, y_coord: coords.y, map_id: selectedMap.id });
+                                                setHighlightedPinId(null);
+                                            }
+                                        }}
+                                        onMovePin={handleMovePin}
+                                        highlightedPinId={highlightedPinId}
                                     />
-                                </>
-                            ) : (
-                                <Wiki 
-                                    selectedMap={selectedMap}
-                                    selectedPin={selectedPin}
-                                    selectedCharacter={selectedCharacter}
-                                    onSelectMap={(map) => {
-                                        setSelectedMap(map);
-                                        setCurrentView('map');
-                                    }}
-                                    onLocatePin={(pin) => {
-                                        const map = maps.find(m => m.id === pin.map_id);
-                                        if(map) {
-                                            setSelectedMap(map);
-                                            setHighlightedPinId(pin.id); 
-                                            setSelectedPin(null); 
-                                            setCurrentView('map');
-                                        }
-                                    }}
+                                ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-dnd-text/30">
+                                        <div className="text-center">
+                                            <Icon name="map" className="mx-auto h-24 w-24 opacity-10 mb-6" />
+                                            <h2 className="text-3xl font-serif mb-2">Atlas</h2>
+                                            <p className="text-lg">Select a map from the sidebar to begin your exploration</p>
+                                        </div>
+                                    </div>
+                                )}
+                                <PinDetails 
+                                    pin={selectedPin} 
+                                    onClose={() => setSelectedPin(null)} 
+                                    onEdit={(pin) => setEditingPin(pin)}
+                                    mapId={selectedMap?.id}
+                                    onOpenWiki={handleOpenWikiCharacter}
                                 />
-                            )}
-                        </motion.div>
-                    </AnimatePresence>
+                            </>
+                        ) : (
+                            <Wiki 
+                                selectedMap={selectedMap}
+                                selectedPin={selectedPin}
+                                selectedCharacter={selectedCharacter}
+                                onSelectMap={(map) => {
+                                    setSelectedMap(map);
+                                    setCurrentView('map');
+                                }}
+                                onLocatePin={(pin) => {
+                                    const map = maps.find(m => m.id === pin.map_id);
+                                    if(map) {
+                                        setSelectedMap(map);
+                                        setHighlightedPinId(pin.id); 
+                                        setSelectedPin(null); 
+                                        setCurrentView('map');
+                                    }
+                                }}
+                            />
+                        )}
+                    </div>
 
                     {/* Modals */}
-                    <AnimatePresence>
-                        {isDMToolsOpen && (
-                            <DMToolsModal 
-                                isOpen={isDMToolsOpen}
-                                onClose={() => setDMToolsOpen(false)}
-                                onMapManagerOpen={() => setMapManagerOpen(true)}
-                                onCharacterManagerOpen={() => setCharacterManagerOpen(true)}
-                                onPinTypeManagerOpen={() => setPinTypeManagerOpen(true)}
-                                onPlayerManagerOpen={() => setPlayerManagerOpen(true)}
-                                onSignOut={() => signOut()}
-                            />
-                        )}
+                    {isDMToolsOpen && (
+                        <DMToolsModal 
+                            isOpen={isDMToolsOpen}
+                            onClose={() => setDMToolsOpen(false)}
+                            onMapManagerOpen={() => setMapManagerOpen(true)}
+                            onCharacterManagerOpen={() => setCharacterManagerOpen(true)}
+                            onPinTypeManagerOpen={() => setPinTypeManagerOpen(true)}
+                            onPlayerManagerOpen={() => setPlayerManagerOpen(true)}
+                            onSignOut={() => signOut()}
+                        />
+                    )}
 
-                        {isMapManagerOpen && <MapManagerModal isOpen={isMapManagerOpen} onClose={() => setMapManagerOpen(false)} />}
-                        {isPinTypeManagerOpen && <PinTypeManagerModal isOpen={isPinTypeManagerOpen} onClose={() => setPinTypeManagerOpen(false)} />}
-                        {isPlayerManagerOpen && <PlayerManagerModal isOpen={isPlayerManagerOpen} onClose={() => setPlayerManagerOpen(false)} />}
-                        {isCharacterManagerOpen && <CharacterManagerModal isOpen={isCharacterManagerOpen} onClose={() => setCharacterManagerOpen(false)} />}
-                        {isUserSettingsOpen && <UserSettingsModal isOpen={isUserSettingsOpen} onClose={() => setUserSettingsOpen(false)} />}
-                        {editingPin && (
-                            <PinEditorModal 
-                                pinData={editingPin} 
-                                onClose={() => setEditingPin(null)} 
-                                onSave={handlePinSave} 
-                            />
-                        )}
-                    </AnimatePresence>
+                    {isMapManagerOpen && <MapManagerModal isOpen={isMapManagerOpen} onClose={() => setMapManagerOpen(false)} />}
+                    {isPinTypeManagerOpen && <PinTypeManagerModal isOpen={isPinTypeManagerOpen} onClose={() => setPinTypeManagerOpen(false)} />}
+                    {isPlayerManagerOpen && <PlayerManagerModal isOpen={isPlayerManagerOpen} onClose={() => setPlayerManagerOpen(false)} />}
+                    {isCharacterManagerOpen && <CharacterManagerModal isOpen={isCharacterManagerOpen} onClose={() => setCharacterManagerOpen(false)} />}
+                    {isUserSettingsOpen && <UserSettingsModal isOpen={isUserSettingsOpen} onClose={() => setUserSettingsOpen(false)} />}
+                    {editingPin && (
+                        <PinEditorModal 
+                            pinData={editingPin} 
+                            onClose={() => setEditingPin(null)} 
+                            onSave={handlePinSave} 
+                        />
+                    )}
                 </main>
             </div>
         </AppContext.Provider>

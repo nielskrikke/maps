@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Pin, Comment, PinSection, Character } from '../types';
 import { useAuth } from '../App';
 import { useAppContext } from '../contexts/AppContext';
@@ -147,21 +146,16 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                                         </div>
                                         <Icon name={expandedItem === item.id ? 'chevron-down' : 'chevron-right'} className="w-4 h-4 text-dnd-text/20" />
                                     </div>
-                                    <AnimatePresence>
-                                        {expandedItem === item.id && item.desc && (
-                                            <motion.div 
-                                                initial={{ height: 0, opacity: 0 }}
-                                                animate={{ height: 'auto', opacity: 1 }}
-                                                exit={{ height: 0, opacity: 0 }}
-                                                className="px-4 pb-4 pt-0 text-xs text-dnd-text/60 border-t border-white/5 mt-1 overflow-hidden"
-                                            >
-                                                <div className="py-3 prose prose-invert prose-p:my-1 max-w-none">
-                                                    {item.desc.split('\n').map((line, i) => <p key={i}>{line}</p>)}
-                                                </div>
-                                                {item.cost && <p className="text-dnd-gold font-mono mt-3 font-bold">Value: {item.cost}</p>}
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
+                                    {expandedItem === item.id && item.desc && (
+                                        <div 
+                                            className="px-4 pb-4 pt-0 text-xs text-dnd-text/60 border-t border-white/5 mt-1 overflow-hidden"
+                                        >
+                                            <div className="py-3 prose prose-invert prose-p:my-1 max-w-none">
+                                                {item.desc.split('\n').map((line, i) => <p key={i}>{line}</p>)}
+                                            </div>
+                                            {item.cost && <p className="text-dnd-gold font-mono mt-3 font-bold">Value: {item.cost}</p>}
+                                        </div>
+                                    )}
                                 </div>
                             )) : (
                                 <p className="text-center text-sm text-dnd-text/20 py-6 italic">Empty.</p>
@@ -246,10 +240,7 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
     const linkedMap = maps.find(m => m.id === pin.linked_map_id);
 
     return (
-        <motion.aside 
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+        <aside 
             className="absolute top-0 right-0 h-full w-full max-w-sm bg-dnd-panel/95 backdrop-blur-md border-l border-white/5 p-5 shadow-2xl z-30 overflow-hidden"
         >
             {/* Background Accent */}
@@ -283,33 +274,28 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                                 )}
                             </div>
                             
-                            <AnimatePresence>
-                                {isSummoning && (
-                                    <motion.div 
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: 'auto' }}
-                                        exit={{ opacity: 0, height: 0 }}
-                                        className="mb-4 bg-black/20 rounded-xl border border-dnd-gold/20 p-3 overflow-hidden"
-                                    >
-                                        <input autoFocus type="text" placeholder="Search the archives..." className="w-full bg-transparent text-sm border-b border-white/5 pb-2 mb-3 focus:outline-none focus:border-dnd-gold/50 placeholder-dnd-text/20" />
-                                        <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
-                                            {characters.filter(c => c.current_pin_id !== pin.id).map(c => (
-                                                <button 
-                                                    key={c.id} 
-                                                    onClick={() => handleMoveCharacter(c.id, pin.id)}
-                                                    className="w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-white/5 rounded-lg text-sm text-dnd-text/60 hover:text-white transition-all"
-                                                >
-                                                    <div className="w-6 h-6 rounded-full bg-dnd-dark border border-white/10 overflow-hidden shadow-sm">
-                                                        {c.image_url && <img src={c.image_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />}
-                                                    </div>
-                                                    {c.name}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <button onClick={() => setIsSummoning(false)} className="w-full text-center text-[10px] font-bold uppercase tracking-widest text-dnd-text/20 mt-3 hover:text-dnd-text/60 transition-colors">Cancel</button>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                            {isSummoning && (
+                                <div 
+                                    className="mb-4 bg-black/20 rounded-xl border border-dnd-gold/20 p-3 overflow-hidden"
+                                >
+                                    <input autoFocus type="text" placeholder="Search the archives..." className="w-full bg-transparent text-sm border-b border-white/5 pb-2 mb-3 focus:outline-none focus:border-dnd-gold/50 placeholder-dnd-text/20" />
+                                    <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
+                                        {characters.filter(c => c.current_pin_id !== pin.id).map(c => (
+                                            <button 
+                                                key={c.id} 
+                                                onClick={() => handleMoveCharacter(c.id, pin.id)}
+                                                className="w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-white/5 rounded-lg text-sm text-dnd-text/60 hover:text-white transition-all"
+                                            >
+                                                <div className="w-6 h-6 rounded-full bg-dnd-dark border border-white/10 overflow-hidden shadow-sm">
+                                                    {c.image_url && <img src={c.image_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />}
+                                                </div>
+                                                {c.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button onClick={() => setIsSummoning(false)} className="w-full text-center text-[10px] font-bold uppercase tracking-widest text-dnd-text/20 mt-3 hover:text-dnd-text/60 transition-colors">Cancel</button>
+                                </div>
+                            )}
 
                             <div className="flex flex-wrap gap-3">
                                 {presentCharacters.map(char => (
@@ -341,68 +327,63 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                         </div>
                     )}
 
-                    <AnimatePresence>
-                        {viewingCharacter && (
-                            <motion.div 
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.95 }}
-                                className="bg-white/5 border border-dnd-gold/20 rounded-2xl p-5 shadow-2xl relative overflow-hidden"
-                            >
-                                <button onClick={() => setViewingCharacter(null)} className="absolute top-4 right-4 text-dnd-text/40 hover:text-white transition-colors"><Icon name="close" className="w-5 h-5"/></button>
-                                <div className="flex gap-4 mb-4">
-                                    <div className="w-20 h-20 rounded-xl bg-dnd-dark overflow-hidden border border-white/10 flex-shrink-0 shadow-2xl">
-                                        {viewingCharacter.image_url && <img src={viewingCharacter.image_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />}
-                                    </div>
-                                    <div>
-                                        <h3 className="font-serif text-xl text-white font-bold">{viewingCharacter.name}</h3>
-                                        <p className="text-[10px] text-dnd-gold uppercase tracking-widest font-bold mt-1">
-                                            {viewingCharacter.role_details?.race} {!isPlayerView && viewingCharacter.role_details?.class}
-                                        </p>
-                                        
-                                        {!isPlayerView && (
-                                            <p className="text-[10px] text-dnd-text/40 font-bold mt-1">LEVEL {viewingCharacter.role_details?.level} • {viewingCharacter.role_details?.alignment}</p>
+                    {viewingCharacter && (
+                        <div 
+                            className="bg-white/5 border border-dnd-gold/20 rounded-2xl p-5 shadow-2xl relative overflow-hidden"
+                        >
+                            <button onClick={() => setViewingCharacter(null)} className="absolute top-4 right-4 text-dnd-text/40 hover:text-white transition-colors"><Icon name="close" className="w-5 h-5"/></button>
+                            <div className="flex gap-4 mb-4">
+                                <div className="w-20 h-20 rounded-xl bg-dnd-dark overflow-hidden border border-white/10 flex-shrink-0 shadow-2xl">
+                                    {viewingCharacter.image_url && <img src={viewingCharacter.image_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />}
+                                </div>
+                                <div>
+                                    <h3 className="font-serif text-xl text-white font-bold">{viewingCharacter.name}</h3>
+                                    <p className="text-[10px] text-dnd-gold uppercase tracking-widest font-bold mt-1">
+                                        {viewingCharacter.role_details?.race} {!isPlayerView && viewingCharacter.role_details?.class}
+                                    </p>
+                                    
+                                    {!isPlayerView && (
+                                        <p className="text-[10px] text-dnd-text/40 font-bold mt-1">LEVEL {viewingCharacter.role_details?.level} • {viewingCharacter.role_details?.alignment}</p>
+                                    )}
+                                    
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                        {!isPlayerView && viewingCharacter.sheet_url && (
+                                            <a href={viewingCharacter.sheet_url} target="_blank" rel="noopener noreferrer" className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 transition-all">
+                                                <Icon name="external" className="w-3 h-3" /> Sheet
+                                            </a>
                                         )}
-                                        
-                                        <div className="flex flex-wrap gap-2 mt-3">
-                                            {!isPlayerView && viewingCharacter.sheet_url && (
-                                                <a href={viewingCharacter.sheet_url} target="_blank" rel="noopener noreferrer" className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 transition-all">
-                                                    <Icon name="external" className="w-3 h-3" /> Sheet
-                                                </a>
-                                            )}
-                                            {onOpenWiki && (
-                                                <button onClick={() => onOpenWiki(viewingCharacter.id)} className="px-2 py-1 rounded-lg bg-dnd-gold/10 text-dnd-gold hover:bg-dnd-gold hover:text-white text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 transition-all border border-dnd-gold/20">
-                                                    <Icon name="book" className="w-3 h-3" /> Wiki
-                                                </button>
-                                            )}
-                                        </div>
+                                        {onOpenWiki && (
+                                            <button onClick={() => onOpenWiki(viewingCharacter.id)} className="px-2 py-1 rounded-lg bg-dnd-gold/10 text-dnd-gold hover:bg-dnd-gold hover:text-white text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 transition-all border border-dnd-gold/20">
+                                                <Icon name="book" className="w-3 h-3" /> Wiki
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
-                                
-                                <div className="text-sm text-dnd-text/60 max-h-32 overflow-y-auto custom-scrollbar whitespace-pre-wrap mb-4 leading-relaxed">
-                                    {viewingCharacter.backstory || "No records of this soul exist."}
-                                </div>
+                            </div>
+                            
+                            <div className="text-sm text-dnd-text/60 max-h-32 overflow-y-auto custom-scrollbar whitespace-pre-wrap mb-4 leading-relaxed">
+                                {viewingCharacter.backstory || "No records of this soul exist."}
+                            </div>
 
-                                {viewingCharacter.relationships && viewingCharacter.relationships.length > 0 && (
-                                    <div className="mt-4 pt-4 border-t border-white/5">
-                                        <p className="text-[10px] text-dnd-text/40 font-bold mb-2 uppercase tracking-widest">Connections</p>
-                                        <div className="space-y-2">
-                                            {viewingCharacter.relationships.map((rel, i) => (
-                                                <div key={i} className="text-xs flex items-start gap-2">
-                                                    <span className="text-dnd-gold font-bold mt-0.5">•</span>
-                                                    <span className="text-dnd-text/60">
-                                                        <span className="font-bold text-white">{getCharacterName(rel.targetId)}</span>
-                                                        <span className="text-dnd-text/40"> ({rel.type})</span>
-                                                        {rel.notes && <span className="text-dnd-text/40 block pl-2 italic mt-1">"{rel.notes}"</span>}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
+                            {viewingCharacter.relationships && viewingCharacter.relationships.length > 0 && (
+                                <div className="mt-4 pt-4 border-t border-white/5">
+                                    <p className="text-[10px] text-dnd-text/40 font-bold mb-2 uppercase tracking-widest">Connections</p>
+                                    <div className="space-y-2">
+                                        {viewingCharacter.relationships.map((rel, i) => (
+                                            <div key={i} className="text-xs flex items-start gap-2">
+                                                <span className="text-dnd-gold font-bold mt-0.5">•</span>
+                                                <span className="text-dnd-text/60">
+                                                    <span className="font-bold text-white">{getCharacterName(rel.targetId)}</span>
+                                                    <span className="text-dnd-text/40"> ({rel.type})</span>
+                                                    {rel.notes && <span className="text-dnd-text/40 block pl-2 italic mt-1">"{rel.notes}"</span>}
+                                                </span>
+                                            </div>
+                                        ))}
                                     </div>
-                                )}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {isDM && !isPlayerView && (
                         <button onClick={() => onEdit(pin)} className="w-full rounded-xl bg-dnd-gold text-white font-bold py-2.5 shadow-xl shadow-dnd-gold/20 hover:brightness-110 transition-all uppercase tracking-widest text-[10px]">Edit Pin Details</button>
@@ -471,7 +452,7 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                     </div>
                 </div>
             </div>
-        </motion.aside>
+        </aside>
     );
 };
 

@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { supabase, supabaseUrl, supabaseAnonKey, uploadFile } from '../services/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { useAuth } from '../App';
@@ -43,41 +42,33 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
         };
     }, [onClose]);
 
+    if (!isOpen) return null;
+
     return (
-        <AnimatePresence>
-            {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-                    <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={onClose}
-                        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-                    />
-                    <motion.div 
-                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className={cn(
-                            "w-full rounded-2xl bg-dnd-panel/90 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col max-h-[90vh] relative z-10",
-                            maxWidthClass
-                        )}
-                        onClick={(e) => e.stopPropagation()}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+            <div 
+                onClick={onClose}
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <div 
+                className={cn(
+                    "w-full rounded-2xl bg-dnd-panel/90 backdrop-blur-2xl border border-white/10 p-5 shadow-2xl flex flex-col max-h-[90vh] relative z-10",
+                    maxWidthClass
+                )}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4 flex-shrink-0">
+                    <h2 className="text-xl font-serif font-bold text-white tracking-tight">{title}</h2>
+                    <button 
+                        onClick={onClose} 
+                        className="rounded-full p-1.5 text-dnd-text/40 transition-all hover:bg-white/5 hover:text-white"
                     >
-                        <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4 flex-shrink-0">
-                            <h2 className="text-xl font-serif font-bold text-white tracking-tight">{title}</h2>
-                            <button 
-                                onClick={onClose} 
-                                className="rounded-full p-1.5 text-dnd-text/40 transition-all hover:bg-white/5 hover:text-white"
-                            >
-                                <Icon name="close" className="h-5 w-5" />
-                            </button>
-                        </div>
-                        <div className="overflow-y-auto pr-2 custom-scrollbar flex-1">{children}</div>
-                    </motion.div>
+                        <Icon name="close" className="h-5 w-5" />
+                    </button>
                 </div>
-            )}
-        </AnimatePresence>
+                <div className="overflow-y-auto pr-2 custom-scrollbar flex-1">{children}</div>
+            </div>
+        </div>
     );
 };
 
@@ -244,16 +235,14 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
                 </div>
 
                 {msg && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
+                    <div 
                         className={cn(
                             "p-4 rounded-2xl text-sm font-bold border",
                             msg.type === 'success' ? 'bg-green-900/10 border-green-500/20 text-green-400' : 'bg-dnd-red/10 border-dnd-red/20 text-dnd-red'
                         )}
                     >
                         {msg.text}
-                    </motion.div>
+                    </div>
                 )}
 
                 <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
@@ -502,16 +491,14 @@ export const PlayerManagerModal: React.FC<PlayerManagerModalProps> = ({ isOpen, 
                     </div>
 
                     {status && (
-                        <motion.div 
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
+                        <div 
                             className={cn(
                                 "p-4 rounded-2xl border text-sm font-bold",
                                 status.type === 'success' ? 'bg-green-900/10 border-green-500/20 text-green-400' : 'bg-dnd-red/10 border-dnd-red/20 text-dnd-red'
                             )}
                         >
                             {status.msg}
-                        </motion.div>
+                        </div>
                     )}
 
                     <button type="submit" disabled={loading} className="w-full bg-dnd-gold hover:brightness-110 text-white font-bold py-4 px-8 rounded-2xl shadow-xl shadow-dnd-gold/20 transition-all disabled:opacity-50 uppercase tracking-widest text-xs">

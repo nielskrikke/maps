@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAppContext } from '../contexts/AppContext';
 import { useAuth } from '../App';
 import { Map as MapType, Pin, Character, Comment } from '../types';
@@ -103,10 +102,7 @@ const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter
         const pinMap = maps.find(m => m.id === pin.map_id);
         
         return (
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
+            <div 
                 className="space-y-10 max-w-5xl mx-auto pb-24"
             >
                 {/* Header */}
@@ -229,16 +225,13 @@ const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter
                         );
                     })}
                 </div>
-            </motion.div>
+            </div>
         );
     };
 
     const renderCharacterContent = (char: Character) => {
         return (
-            <motion.div 
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.98 }}
+            <div 
                 className="space-y-10 max-w-5xl mx-auto pb-24"
             >
                 <div className="flex flex-col md:flex-row gap-10 border-b border-white/5 pb-10">
@@ -351,7 +344,7 @@ const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter
                         </div>
                     </div>
                 </div>
-            </motion.div>
+            </div>
         );
     };
 
@@ -365,111 +358,104 @@ const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter
                 <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-dnd-gold/5 to-transparent pointer-events-none" />
 
                 <div className="p-6 md:p-10 min-h-full relative z-10">
-                    <AnimatePresence mode="wait">
-                        {selectedPin ? (
-                            <React.Fragment key={`pin-${selectedPin.id}`}>
-                                {renderPinContent(selectedPin)}
-                            </React.Fragment>
-                        ) : selectedCharacter ? (
-                            <React.Fragment key={`char-${selectedCharacter.id}`}>
-                                {renderCharacterContent(selectedCharacter)}
-                            </React.Fragment>
-                        ) : selectedMap ? (
-                            <motion.div 
-                                key={`map-${selectedMap.id}`}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                                className="max-w-4xl mx-auto space-y-6"
-                            >
-                                <div className="flex items-center gap-6 border-b border-white/5 pb-6">
-                                    <div className="w-16 h-16 rounded-2xl overflow-hidden ring-4 ring-white/5 shadow-2xl bg-dnd-dark">
-                                        <img src={selectedMap.image_url} className="w-full h-full object-cover" alt={selectedMap.name} referrerPolicy="no-referrer" />
-                                    </div>
-                                    <div>
-                                        <h1 className="text-3xl font-serif font-bold text-white tracking-tight">{selectedMap.name}</h1>
-                                        <p className="text-dnd-gold mt-1 uppercase tracking-[0.3em] text-[9px] font-bold flex items-center gap-3">
-                                            <span className="capitalize">{selectedMap.map_type?.replace('_', ' ') || 'Region'} Map</span>
-                                            <span className="text-dnd-text/20">•</span>
-                                            <span className="text-dnd-text/40">{activeMapPins.length} Locations</span>
-                                        </p>
-                                    </div>
-                                    <button 
-                                        onClick={() => onSelectMap(selectedMap)}
-                                        className="ml-auto flex items-center gap-2.5 bg-dnd-gold text-white px-5 py-2.5 rounded-xl shadow-2xl shadow-dnd-gold/20 transition-all font-bold uppercase tracking-widest text-[10px] hover:brightness-110"
-                                    >
-                                        <Icon name="map" className="w-4 h-4"/>
-                                        Enter Realm
-                                    </button>
+                    {selectedPin ? (
+                        <React.Fragment key={`pin-${selectedPin.id}`}>
+                            {renderPinContent(selectedPin)}
+                        </React.Fragment>
+                    ) : selectedCharacter ? (
+                        <React.Fragment key={`char-${selectedCharacter.id}`}>
+                            {renderCharacterContent(selectedCharacter)}
+                        </React.Fragment>
+                    ) : selectedMap ? (
+                        <div 
+                            key={`map-${selectedMap.id}`}
+                            className="max-w-4xl mx-auto space-y-6"
+                        >
+                            <div className="flex items-center gap-6 border-b border-white/5 pb-6">
+                                <div className="w-16 h-16 rounded-2xl overflow-hidden ring-4 ring-white/5 shadow-2xl bg-dnd-dark">
+                                    <img src={selectedMap.image_url} className="w-full h-full object-cover" alt={selectedMap.name} referrerPolicy="no-referrer" />
                                 </div>
+                                <div>
+                                    <h1 className="text-3xl font-serif font-bold text-white tracking-tight">{selectedMap.name}</h1>
+                                    <p className="text-dnd-gold mt-1 uppercase tracking-[0.3em] text-[9px] font-bold flex items-center gap-3">
+                                        <span className="capitalize">{selectedMap.map_type?.replace('_', ' ') || 'Region'} Map</span>
+                                        <span className="text-dnd-text/20">•</span>
+                                        <span className="text-dnd-text/40">{activeMapPins.length} Locations</span>
+                                    </p>
+                                </div>
+                                <button 
+                                    onClick={() => onSelectMap(selectedMap)}
+                                    className="ml-auto flex items-center gap-2.5 bg-dnd-gold text-white px-5 py-2.5 rounded-xl shadow-2xl shadow-dnd-gold/20 transition-all font-bold uppercase tracking-widest text-[10px] hover:brightness-110"
+                                >
+                                    <Icon name="map" className="w-4 h-4"/>
+                                    Enter Realm
+                                </button>
+                            </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {activeMapPins.map(pin => {
-                                        const type = pinTypes.find(t => t.id === pin.pin_type_id);
-                                        const charsAtPin = characters.filter(c => c.current_pin_id === pin.id && ((isDM && !isPlayerView) || c.is_visible));
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {activeMapPins.map(pin => {
+                                    const type = pinTypes.find(t => t.id === pin.pin_type_id);
+                                    const charsAtPin = characters.filter(c => c.current_pin_id === pin.id && ((isDM && !isPlayerView) || c.is_visible));
 
-                                        return (
-                                            <button 
-                                                key={pin.id}
-                                                onClick={() => onLocatePin(pin)}
-                                                className="bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 p-4 rounded-xl text-left transition-all group flex flex-col gap-3 shadow-xl"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-2xl ring-2 ring-white/5 group-hover:ring-dnd-gold transition-all" style={{ backgroundColor: type?.color }}>
-                                                        {type?.emoji}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <h3 className="font-bold text-white truncate group-hover:text-dnd-gold transition-colors text-base">{pin.title}</h3>
-                                                        <p className="text-[9px] font-bold uppercase tracking-widest text-dnd-text/40 mt-0.5">{type?.name}</p>
-                                                    </div>
+                                    return (
+                                        <button 
+                                            key={pin.id}
+                                            onClick={() => onLocatePin(pin)}
+                                            className="bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 p-4 rounded-xl text-left transition-all group flex flex-col gap-3 shadow-xl"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-2xl ring-2 ring-white/5 group-hover:ring-dnd-gold transition-all" style={{ backgroundColor: type?.color }}>
+                                                    {type?.emoji}
                                                 </div>
-                                                {pin.data.description && (
-                                                    <p className="text-xs text-dnd-text/40 line-clamp-2 leading-relaxed font-medium">{pin.data.description}</p>
-                                                )}
-                                                
-                                                {charsAtPin.length > 0 && (
-                                                    <div className="mt-1 pt-3 border-t border-white/5 flex items-center gap-2">
-                                                        <div className="flex -space-x-2.5">
-                                                            {charsAtPin.slice(0, 5).map(c => (
-                                                                <div key={c.id} className="w-7 h-7 rounded-full ring-2 ring-dnd-panel bg-dnd-dark overflow-hidden relative z-0 hover:z-10 transition-all shadow-lg" title={c.name}>
-                                                                    {c.image_url ? (
-                                                                        <img src={c.image_url} className="w-full h-full object-cover" alt={c.name} referrerPolicy="no-referrer" />
-                                                                    ) : (
-                                                                        <div className="w-full h-full flex items-center justify-center text-dnd-text/40"><Icon name="user" className="w-3 h-3"/></div>
-                                                                    )}
-                                                                </div>
-                                                            ))}
-                                                            {charsAtPin.length > 5 && (
-                                                                <div className="w-7 h-7 rounded-full ring-2 ring-dnd-panel bg-white/5 flex items-center justify-center text-[9px] text-dnd-gold font-bold z-0 shadow-lg">
-                                                                    +{charsAtPin.length - 5}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <span className="text-[9px] text-dnd-text/40 font-bold uppercase tracking-widest">
-                                                            {charsAtPin.length} Present
-                                                        </span>
+                                                <div className="min-w-0">
+                                                    <h3 className="font-bold text-white truncate group-hover:text-dnd-gold transition-colors text-base">{pin.title}</h3>
+                                                    <p className="text-[9px] font-bold uppercase tracking-widest text-dnd-text/40 mt-0.5">{type?.name}</p>
+                                                </div>
+                                            </div>
+                                            {pin.data.description && (
+                                                <p className="text-xs text-dnd-text/40 line-clamp-2 leading-relaxed font-medium">{pin.data.description}</p>
+                                            )}
+                                            
+                                            {charsAtPin.length > 0 && (
+                                                <div className="mt-1 pt-3 border-t border-white/5 flex items-center gap-2">
+                                                    <div className="flex -space-x-2.5">
+                                                        {charsAtPin.slice(0, 5).map(c => (
+                                                            <div key={c.id} className="w-7 h-7 rounded-full ring-2 ring-dnd-panel bg-dnd-dark overflow-hidden relative z-0 hover:z-10 transition-all shadow-lg" title={c.name}>
+                                                                {c.image_url ? (
+                                                                    <img src={c.image_url} className="w-full h-full object-cover" alt={c.name} referrerPolicy="no-referrer" />
+                                                                ) : (
+                                                                    <div className="w-full h-full flex items-center justify-center text-dnd-text/40"><Icon name="user" className="w-3 h-3"/></div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                        {charsAtPin.length > 5 && (
+                                                            <div className="w-7 h-7 rounded-full ring-2 ring-dnd-panel bg-white/5 flex items-center justify-center text-[9px] text-dnd-gold font-bold z-0 shadow-lg">
+                                                                +{charsAtPin.length - 5}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
-                                    {activeMapPins.length === 0 && <p className="col-span-full text-dnd-text/20 italic text-center py-16 font-medium">No locations have been chronicled in this map.</p>}
-                                </div>
-                            </motion.div>
-                        ) : (
-                            <motion.div 
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 0.5 }}
-                                className="h-full flex flex-col items-center justify-center text-dnd-text/40 space-y-8"
-                            >
-                                <Icon name="book" className="w-32 h-32 text-dnd-gold/20"/>
-                                <div className="text-center">
-                                    <h2 className="text-4xl font-serif text-white/40 font-bold tracking-tight">The Eternal Archives</h2>
-                                    <p className="mt-4 text-lg font-medium">Select a location or character from the sidebar to begin reading.</p>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                                                    <span className="text-[9px] text-dnd-text/40 font-bold uppercase tracking-widest">
+                                                        {charsAtPin.length} Present
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                                {activeMapPins.length === 0 && <p className="col-span-full text-dnd-text/20 italic text-center py-16 font-medium">No locations have been chronicled in this map.</p>}
+                            </div>
+                        </div>
+                    ) : (
+                        <div 
+                            className="h-full flex flex-col items-center justify-center text-dnd-text/40 space-y-8"
+                        >
+                            <Icon name="book" className="w-32 h-32 text-dnd-gold/20"/>
+                            <div className="text-center">
+                                <h2 className="text-4xl font-serif text-white/40 font-bold tracking-tight">The Eternal Archives</h2>
+                                <p className="mt-4 text-lg font-medium">Select a location or character from the sidebar to begin reading.</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

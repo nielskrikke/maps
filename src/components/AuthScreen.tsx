@@ -1,6 +1,5 @@
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../services/supabase';
 import { Icon } from './Icons';
 import { cn } from '../lib/utils';
@@ -62,7 +61,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ authError, onAuthAttempt }) => 
           {/* Background Accent */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#c9ad6a]/5 rounded-full blur-[120px] pointer-events-none"></div>
           
-          <div className="relative z-10 flex flex-col items-center animate-in fade-in zoom-in duration-1000 w-full max-w-md px-6">
+          <div className="relative z-10 flex flex-col items-center w-full max-w-md px-6">
             <div className="mb-2 relative text-center">
               <h1 className="text-5xl md:text-9xl font-serif font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-[#e5c983] to-[#8a7238] drop-shadow-2xl uppercase">
                 ATLAS
@@ -71,25 +70,18 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ authError, onAuthAttempt }) => 
             
             <div className="h-px w-32 bg-gradient-to-r from-transparent via-[#5c5f66] to-transparent mb-10"></div>
 
-            <AnimatePresence mode="wait">
-              {displayError && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="mb-6 p-4 bg-dnd-red/10 border border-dnd-red/30 rounded-lg w-full"
-                >
-                  <p className="text-dnd-red text-sm font-bold flex items-center justify-center gap-2">
-                    <Icon name="skull" className="w-4 h-4" />
-                    {displayError}
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {displayError && (
+              <div className="mb-6 p-4 bg-dnd-red/10 border border-dnd-red/30 rounded-lg w-full">
+                <p className="text-dnd-red text-sm font-bold flex items-center justify-center gap-2">
+                  <Icon name="skull" className="w-4 h-4" />
+                  {displayError}
+                </p>
+              </div>
+            )}
 
             <form 
               onSubmit={(e) => { e.preventDefault(); handleLogin(); }}
-              className="flex flex-col items-center gap-6 w-full animate-in slide-in-from-bottom-5 duration-500"
+              className="flex flex-col items-center gap-6 w-full"
             >
               <div className="w-full relative">
                 <input 

@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../App';
 import { useAppContext } from '../contexts/AppContext';
 import { Map as MapType, MapTypeEnum, Pin, Character } from '../types';
@@ -125,8 +124,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         return (
             <div className="select-none">
-                <motion.div 
-                    layout
+                <div 
                     onClick={() => onSelectMap(map)}
                     className={cn(
                         "flex items-center space-x-2 rounded-xl py-2 pr-3 text-sm font-medium transition-all duration-200 group cursor-pointer relative",
@@ -147,21 +145,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                     <span className="truncate flex-1">{map.name}</span>
                     {!isPlayerView && !map.is_visible && <Icon name="eye-off" className="w-3 h-3 text-dnd-text/30" title="Hidden" />}
-                </motion.div>
-                <AnimatePresence>
-                    {hasChildren && isExpanded && (
-                        <motion.div 
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="mt-1 space-y-1 overflow-hidden"
-                        >
-                            {children.map(child => (
-                                <MapModeTreeItem key={child.id} map={child} level={level + 1} visited={newVisited} />
-                            ))}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                </div>
+                {hasChildren && isExpanded && (
+                    <div 
+                        className="mt-1 space-y-1 overflow-hidden"
+                    >
+                        {children.map(child => (
+                            <MapModeTreeItem key={child.id} map={child} level={level + 1} visited={newVisited} />
+                        ))}
+                    </div>
+                )}
             </div>
         );
     };
@@ -179,8 +172,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         return (
             <div className="select-none">
-                <motion.div 
-                    layout
+                <div 
                     onClick={() => onSelectMap(map)}
                     className={cn(
                         "flex items-center space-x-2 rounded-xl py-2 pr-3 text-sm font-medium transition-all duration-200 group cursor-pointer relative",
@@ -200,50 +192,40 @@ const Sidebar: React.FC<SidebarProps> = ({
                         )}
                     </div>
                     <span className="truncate flex-1">{map.name}</span>
-                </motion.div>
+                </div>
 
-                <AnimatePresence>
-                    {isMapSelected && mapPins.length > 0 && (
-                        <motion.div 
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="mb-1 mt-1 space-y-0.5 overflow-hidden"
-                        >
-                            {mapPins.map(pin => (
-                                <button 
-                                    key={pin.id}
-                                    onClick={() => onSelectPin(pin)}
-                                    className={cn(
-                                        "w-full flex items-center gap-2 py-1.5 text-xs text-left rounded-lg transition-colors pl-2",
-                                        selectedPin?.id === pin.id 
-                                            ? 'bg-white/10 text-dnd-gold font-bold' 
-                                            : 'text-dnd-text/40 hover:text-dnd-text/80 hover:bg-white/5'
-                                    )}
-                                    style={{ paddingLeft: `${level * 12 + 36}px` }}
-                                >
-                                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: pinTypes.find(t => t.id === pin.pin_type_id)?.color }}></span>
-                                    <span className="truncate">{pin.title}</span>
-                                </button>
-                            ))}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {isMapSelected && mapPins.length > 0 && (
+                    <div 
+                        className="mb-1 mt-1 space-y-0.5 overflow-hidden"
+                    >
+                        {mapPins.map(pin => (
+                            <button 
+                                key={pin.id}
+                                onClick={() => onSelectPin(pin)}
+                                className={cn(
+                                    "w-full flex items-center gap-2 py-1.5 text-xs text-left rounded-lg transition-colors pl-2",
+                                    selectedPin?.id === pin.id 
+                                        ? 'bg-white/10 text-dnd-gold font-bold' 
+                                        : 'text-dnd-text/40 hover:text-dnd-text/80 hover:bg-white/5'
+                                )}
+                                style={{ paddingLeft: `${level * 12 + 36}px` }}
+                            >
+                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: pinTypes.find(t => t.id === pin.pin_type_id)?.color }}></span>
+                                <span className="truncate">{pin.title}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
                 
-                <AnimatePresence>
-                    {hasChildren && isExpanded && (
-                        <motion.div 
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="mt-1 space-y-1 overflow-hidden"
-                        >
-                            {children.map(child => (
-                                <WikiModeTreeItem key={child.id} map={child} level={level + 1} />
-                            ))}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                {hasChildren && isExpanded && (
+                    <div 
+                        className="mt-1 space-y-1 overflow-hidden"
+                    >
+                        {children.map(child => (
+                            <WikiModeTreeItem key={child.id} map={child} level={level + 1} />
+                        ))}
+                    </div>
+                )}
             </div>
         );
     };
@@ -313,25 +295,20 @@ const Sidebar: React.FC<SidebarProps> = ({
             </button>
 
             {/* Wiki Search Bar */}
-            <AnimatePresence>
-                {currentView === 'wiki' && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="mt-6 relative z-10"
-                    >
-                        <Icon name="search" className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-dnd-text/30" />
-                        <input 
-                            type="text" 
-                            placeholder="Search the archives..." 
-                            value={wikiSearchQuery}
-                            onChange={(e) => setWikiSearchQuery(e.target.value)}
-                            className="w-full bg-black/20 border border-white/5 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:border-dnd-gold/50 focus:outline-none placeholder-dnd-text/20 transition-all"
-                        />
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {currentView === 'wiki' && (
+                <div 
+                    className="mt-6 relative z-10"
+                >
+                    <Icon name="search" className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-dnd-text/30" />
+                    <input 
+                        type="text" 
+                        placeholder="Search the archives..." 
+                        value={wikiSearchQuery}
+                        onChange={(e) => setWikiSearchQuery(e.target.value)}
+                        className="w-full bg-black/20 border border-white/5 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:border-dnd-gold/50 focus:outline-none placeholder-dnd-text/20 transition-all"
+                    />
+                </div>
+            )}
 
             <nav className="mt-4 flex-1 overflow-y-auto custom-scrollbar pr-2 relative z-10">
                 {currentView === 'map' ? (

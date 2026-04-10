@@ -1,6 +1,5 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 export interface ApiItem {
     index: string;
@@ -120,27 +119,20 @@ export const ItemProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return (
         <ItemContext.Provider value={{ items, loading, loadingProgress }}>
             {children}
-            <AnimatePresence>
-                {loading && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                        className="fixed bottom-8 right-8 z-[100] bg-dnd-panel/90 backdrop-blur-2xl border border-white/10 p-5 rounded-3xl shadow-2xl flex items-center gap-5 min-w-[280px]"
-                    >
-                        <div className="relative">
-                            <div className="w-10 h-10 rounded-full border-2 border-dnd-gold/10 border-t-dnd-gold animate-spin" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-1 h-1 bg-dnd-gold rounded-full animate-pulse" />
-                            </div>
+            {loading && (
+                <div className="fixed bottom-8 right-8 z-[100] bg-dnd-panel/90 backdrop-blur-2xl border border-white/10 p-5 rounded-3xl shadow-2xl flex items-center gap-5 min-w-[280px]">
+                    <div className="relative">
+                        <div className="w-10 h-10 rounded-full border-2 border-dnd-gold/10 border-t-dnd-gold animate-spin" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-1 h-1 bg-dnd-gold rounded-full animate-pulse" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-dnd-gold mb-1">Archiving the Weave</div>
-                            <div className="text-[10px] text-dnd-text/40 font-mono truncate">{loadingProgress}</div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-dnd-gold mb-1">Archiving the Weave</div>
+                        <div className="text-[10px] text-dnd-text/40 font-mono truncate">{loadingProgress}</div>
+                    </div>
+                </div>
+            )}
         </ItemContext.Provider>
     );
 };
