@@ -239,7 +239,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
             <div className="flex items-center gap-3 mb-4 px-1 relative z-10">
                 <img 
-                    src="https://nielskrikke.com/wp-content/uploads/2026/04/maps-icon-new.png" 
+                    src="https://nielskrikke.com/wp-content/uploads/2026/04/atlas-icon-A.png" 
                     alt="Atlas" 
                     className="w-8 h-8 rounded-xl shadow-2xl border border-white/10" 
                     referrerPolicy="no-referrer"
