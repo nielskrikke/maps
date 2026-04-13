@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../App';
 import { useAppContext } from '../contexts/AppContext';
-import { Map as MapType, MapTypeEnum, Pin, Character } from '../types';
+import { Map as MapType, MapTypeEnum, Pin, Character, WikiPage } from '../types';
 import { Icon } from './Icons';
 import { cn } from '../lib/utils';
 
@@ -10,9 +10,11 @@ interface SidebarProps {
     selectedMap: MapType | null;
     selectedPin: Pin | null;
     selectedCharacter: Character | null;
+    selectedWikiPage: WikiPage | null;
     onSelectMap: (map: MapType | null) => void;
     onSelectPin: (pin: Pin | null) => void;
     onSelectCharacter: (char: Character | null) => void;
+    onSelectWikiPage: (page: WikiPage | null) => void;
     currentView: 'map' | 'wiki';
     onViewChange: (view: 'map' | 'wiki') => void;
     onDMToolsOpen: () => void;
@@ -20,13 +22,14 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
-    selectedMap, selectedPin, selectedCharacter, 
-    onSelectMap, onSelectPin, onSelectCharacter,
+    selectedMap, selectedPin, selectedCharacter, selectedWikiPage,
+    onSelectMap, onSelectPin, onSelectCharacter, onSelectWikiPage,
     currentView, onViewChange, onDMToolsOpen, onUserSettingsOpen 
 }) => {
     const { user, signOut } = useAuth();
-    const { maps, pins, pinTypes, characters, isPlayerView, setIsPlayerView } = useAppContext();
+    const { maps, pins, pinTypes, characters, wikiPages, isPlayerView, setIsPlayerView } = useAppContext();
     const [expandedMapIds, setExpandedMapIds] = useState<Set<string>>(new Set());
+    const [expandedWikiIds, setExpandedWikiIds] = useState<Set<string>>(new Set());
     
     // Wiki State
     const [wikiSearchQuery, setWikiSearchQuery] = useState('');
@@ -44,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     // Wiki Filter Logic
     const filteredWikiData = useMemo(() => {
-        if (currentView !== 'wiki') return { maps: [], characters: [] };
+        if (currentView !== 'wiki') return { maps: [], characters: [], wikiPages: [] };
         
         const lowerQ = wikiSearchQuery.toLowerCase();
         
@@ -53,6 +56,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             c.name.toLowerCase().includes(lowerQ) || 
             c.role_details?.race.toLowerCase().includes(lowerQ) ||
             c.role_details?.class.toLowerCase().includes(lowerQ)
+        );
+
+        const fWiki = wikiPages.filter(p => 
+            !wikiSearchQuery ||
+            p.title.toLowerCase().includes(lowerQ) ||
+            p.content.toLowerCase().includes(lowerQ)
         );
 
         const fMaps = displayMaps.map(map => {
@@ -68,8 +77,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             return { map, pins: matchingPins };
         }).filter(Boolean) as { map: MapType, pins: Pin[] }[];
 
-        return { maps: fMaps, characters: fChars };
-    }, [currentView, wikiSearchQuery, displayMaps, displayCharacters, pins]);
+        return { maps: fMaps, characters: fChars, wikiPages: fWiki };
+    }, [currentView, wikiSearchQuery, displayMaps, displayCharacters, pins, wikiPages]);
 
 
     useEffect(() => {
@@ -102,7 +111,55 @@ const Sidebar: React.FC<SidebarProps> = ({
         setExpandedMapIds(newSet);
     };
 
-    const getMapIconName = (type?: MapTypeEnum) => {
+    const toggleExpandWiki = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const newSet = new Set(expandedWikiIds);
+        if (newSet.has(id)) newSet.delete(id);
+        else newSet.add(id);
+        setExpandedWikiIds(newSet);
+    };
+
+    const WikiPageTreeItem: React.FC<{ page: WikiPage, level: number }> = ({ page, level }) => {
+        const children = wikiPages.filter(p => p.parent_id === page.id).sort((a, b) => a.title.localeCompare(b.title));
+        const hasChildren = children.length > 0;
+        const isExpanded = expandedWikiIds.has(page.id);
+        const isSelected = selectedWikiPage?.id === page.id;
+        const type = pinTypes.find(t => t.id === page.type_id);
+
+        return (
+            <div className="select-none">
+                <div 
+                    onClick={() => onSelectWikiPage(page)}
+                    className={cn(
+                        "flex items-center space-x-2 rounded-xl py-2 pr-3 text-sm font-medium transition-all duration-200 group cursor-pointer relative",
+                        isSelected 
+                            ? 'bg-dnd-gold/10 text-dnd-gold border border-dnd-gold/20 shadow-lg' 
+                            : 'text-dnd-text/60 hover:bg-white/5 hover:text-white'
+                    )}
+                    style={{ paddingLeft: `${level * 12 + 8}px` }}
+                >
+                    <div className="flex-shrink-0 flex items-center justify-center w-6 h-6">
+                        {hasChildren ? (
+                            <button onClick={(e) => toggleExpandWiki(page.id, e)} className="p-1 hover:text-dnd-gold transition-colors focus:outline-none">
+                                <Icon name={isExpanded ? "chevron-down" : "chevron-right"} className="w-4 h-4 opacity-70" />
+                            </button>
+                        ) : (
+                            <span className="text-sm opacity-50">{type?.emoji || '📄'}</span>
+                        )}
+                    </div>
+                    <span className="truncate flex-1">{page.title}</span>
+                </div>
+                {hasChildren && isExpanded && (
+                    <div className="mt-1 space-y-1 overflow-hidden">
+                        {children.map(child => (
+                            <WikiPageTreeItem key={child.id} page={child} level={level + 1} />
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+    const getMapIconName = (type: MapTypeEnum) => {
         switch (type) {
             case 'world': return 'globe';
             case 'city': return 'castle';
@@ -238,13 +295,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="absolute top-[-5%] left-[-5%] w-[30%] h-[30%] bg-dnd-gold/5 rounded-full blur-[80px] pointer-events-none" />
 
             <div className="flex items-center gap-3 mb-4 px-1 relative z-10">
-                <img 
-                    src="https://nielskrikke.com/wp-content/uploads/2026/04/atlas-icon-A.png" 
-                    alt="Atlas" 
-                    className="w-8 h-8 rounded-xl shadow-2xl border border-white/10" 
-                    referrerPolicy="no-referrer"
-                />
-                <h1 className="text-xl font-serif font-bold text-white tracking-tight">Atlas</h1>
+                <h1 className="text-2xl font-serif font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-[#e5c983] to-[#8a7238] drop-shadow-2xl uppercase">
+                    ATLAS
+                </h1>
             </div>
 
             {/* Mode Switcher */}
@@ -259,7 +312,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     )}
                 >
                     <Icon name="map" className="w-3.5 h-3.5" />
-                    Map
+                    Maps
                 </button>
                 <button 
                     onClick={() => onViewChange('wiki')}
@@ -302,7 +355,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <Icon name="search" className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-dnd-text/30" />
                     <input 
                         type="text" 
-                        placeholder="Search the archives..." 
+                        placeholder="Search..." 
                         value={wikiSearchQuery}
                         onChange={(e) => setWikiSearchQuery(e.target.value)}
                         className="w-full bg-black/20 border border-white/5 rounded-xl pl-11 pr-4 py-3 text-sm text-white focus:border-dnd-gold/50 focus:outline-none placeholder-dnd-text/20 transition-all"
@@ -314,7 +367,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {currentView === 'map' ? (
                     <>
                         <div className="flex items-center justify-between mb-4 px-2">
-                            <h2 className="text-[10px] font-bold tracking-[0.2em] text-dnd-text/30 uppercase">Cartography</h2>
+                            <h2 className="text-[10px] font-bold tracking-[0.2em] text-dnd-text/30 uppercase">Maps</h2>
                         </div>
                         {rootMaps.length > 0 ? (
                             <div className="space-y-1">
@@ -337,10 +390,40 @@ const Sidebar: React.FC<SidebarProps> = ({
                              </div>
                          )}
 
+                         {/* Wiki Pages Section */}
+                         {(filteredWikiData.wikiPages.length > 0) && (
+                            <div className="mb-8">
+                                <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-dnd-text/30 mb-3">Wiki</h3>
+                                {wikiSearchQuery ? (
+                                    <div className="space-y-1">
+                                        {filteredWikiData.wikiPages.map(page => (
+                                            <button 
+                                                key={page.id} 
+                                                onClick={() => onSelectWikiPage(page)}
+                                                className={cn(
+                                                    "w-full flex items-center gap-3 px-3 py-2 text-left transition-all rounded-xl",
+                                                    selectedWikiPage?.id === page.id ? 'text-dnd-gold bg-dnd-gold/10' : 'text-dnd-text/60 hover:bg-white/5'
+                                                )}
+                                            >
+                                                <span className="text-sm">{pinTypes.find(t => t.id === page.type_id)?.emoji || '📄'}</span>
+                                                <span className="font-bold truncate text-sm">{page.title}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-1">
+                                        {wikiPages.filter(p => !p.parent_id).sort((a,b) => a.title.localeCompare(b.title)).map(page => (
+                                            <WikiPageTreeItem key={page.id} page={page} level={0} />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                         )}
+
                          {/* Characters Section */}
                          {(filteredWikiData.characters.length > 0) && (
                             <div className="mb-8">
-                                <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-dnd-text/30 mb-3">Dramatis Personae</h3>
+                                <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-dnd-text/30 mb-3">Characters</h3>
                                 {filteredWikiData.characters.map(char => (
                                     <button
                                         key={char.id}
@@ -375,7 +458,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                          {/* Locations Section */}
                          {(wikiSearchQuery ? filteredWikiData.maps.length > 0 : rootMaps.length > 0) && (
                              <div>
-                                <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-dnd-text/30 mb-3">Compendium</h3>
+                                <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-dnd-text/30 mb-3">Locations</h3>
                                 {wikiSearchQuery ? (
                                     <div className="space-y-2">
                                         {filteredWikiData.maps.map(({ map, pins }) => (
@@ -420,12 +503,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
             {user?.profile.role === 'DM' && (
                 <div className="mt-4 pt-4 border-t border-white/5 relative z-10">
-                    <h2 className="text-[9px] font-bold tracking-[0.3em] text-dnd-text/20 uppercase px-2 mb-3">Master Controls</h2>
+                    <h2 className="text-[9px] font-bold tracking-[0.3em] text-dnd-text/20 uppercase px-2 mb-3">DM Tools</h2>
                     <div className="flex gap-2">
                         <button 
                             onClick={onDMToolsOpen}
                             className="flex-1 flex items-center justify-center p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 text-dnd-text/40 hover:text-dnd-gold transition-all group shadow-xl"
-                            title="DM Tools & Settings"
+                            title="Management"
                         >
                             <Icon name="view_apps" className="w-6 h-6" />
                         </button>
@@ -450,7 +533,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className="mt-6 border-t border-white/5 pt-6 relative z-10">
                     <button onClick={signOut} className="flex w-full items-center space-x-3 rounded-2xl px-4 py-3 text-left text-sm font-bold text-dnd-text/40 hover:bg-dnd-red/10 hover:text-dnd-red transition-all">
                         <Icon name="logout" className="h-5 w-5" />
-                        <span>Depart Archives</span>
+                        <span>Logout</span>
                     </button>
                 </div>
             )}

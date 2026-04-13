@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { useAuth } from '../App';
 import { useAppContext } from '../contexts/AppContext';
 import { useItems, ApiItem } from './ItemProvider';
-import { Map as MapType, Pin, PinData, PinType, PinSectionType, PinSection, InventoryItem, Character, CharacterRelationship, MapTypeEnum, UserProfile } from '../types';
+import { Map as MapType, Pin, PinData, PinType, PinSectionType, PinSection, InventoryItem, Character, CharacterRelationship, MapTypeEnum, UserProfile, WikiPage } from '../types';
 import { Icon } from './Icons';
 import MapViewer from './MapViewer';
 import { cn } from '../lib/utils';
@@ -79,12 +79,13 @@ interface DMToolsModalProps {
     onMapManagerOpen: () => void;
     onCharacterManagerOpen: () => void;
     onPinTypeManagerOpen: () => void;
+    onWikiPageManagerOpen: () => void;
     onPlayerManagerOpen: () => void;
     onSignOut: () => void;
 }
 
 export const DMToolsModal: React.FC<DMToolsModalProps> = ({
-    isOpen, onClose, onMapManagerOpen, onCharacterManagerOpen, onPinTypeManagerOpen, onPlayerManagerOpen, onSignOut
+    isOpen, onClose, onMapManagerOpen, onCharacterManagerOpen, onPinTypeManagerOpen, onWikiPageManagerOpen, onPlayerManagerOpen, onSignOut
 }) => {
     const handleAction = (action: () => void) => {
         onClose();
@@ -92,17 +93,17 @@ export const DMToolsModal: React.FC<DMToolsModalProps> = ({
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Sanctum Controls" maxWidthClass="max-w-md">
+        <Modal isOpen={isOpen} onClose={onClose} title="DM Tools" maxWidthClass="max-w-md">
             <div className="space-y-6">
                 <div className="space-y-3">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20 mb-4">World Weaver</h3>
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20 mb-4">Management</h3>
                     <button onClick={() => handleAction(onMapManagerOpen)} className="w-full flex items-center gap-4 p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 transition-all group text-left shadow-lg">
                         <div className="p-3 rounded-xl bg-dnd-dark text-dnd-gold group-hover:scale-110 transition-transform">
                             <Icon name="map" className="w-6 h-6" />
                         </div>
                         <div>
-                            <div className="font-bold text-white">Cartography</div>
-                            <div className="text-xs text-dnd-text/40">Forge and refine your realms</div>
+                            <div className="font-bold text-white">Maps</div>
+                            <div className="text-xs text-dnd-text/40">Manage your maps and regions</div>
                         </div>
                     </button>
                     
@@ -111,8 +112,8 @@ export const DMToolsModal: React.FC<DMToolsModalProps> = ({
                             <Icon name="user" className="w-6 h-6" />
                         </div>
                         <div>
-                            <div className="font-bold text-white">Souls & Shadows</div>
-                            <div className="text-xs text-dnd-text/40">Manifest NPCs and legends</div>
+                            <div className="font-bold text-white">Characters</div>
+                            <div className="text-xs text-dnd-text/40">Manage NPCs and legends</div>
                         </div>
                     </button>
 
@@ -121,21 +122,31 @@ export const DMToolsModal: React.FC<DMToolsModalProps> = ({
                             <Icon name="tag" className="w-6 h-6" />
                         </div>
                         <div>
-                            <div className="font-bold text-white">Sigil Mastery</div>
+                            <div className="font-bold text-white">Pin Types</div>
                             <div className="text-xs text-dnd-text/40">Define the marks of your world</div>
+                        </div>
+                    </button>
+
+                    <button onClick={() => handleAction(onWikiPageManagerOpen)} className="w-full flex items-center gap-4 p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 transition-all group text-left shadow-lg">
+                        <div className="p-3 rounded-xl bg-dnd-dark text-dnd-gold group-hover:scale-110 transition-transform">
+                            <Icon name="book" className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <div className="font-bold text-white">Wiki Pages</div>
+                            <div className="text-xs text-dnd-text/40">Manage the lore of your realm</div>
                         </div>
                     </button>
                 </div>
 
                 <div className="space-y-3 pt-6 border-t border-white/5">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20 mb-4">The Covenant</h3>
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20 mb-4">Users</h3>
                     <button onClick={() => handleAction(onPlayerManagerOpen)} className="w-full flex items-center gap-4 p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 transition-all group text-left shadow-lg">
                         <div className="p-3 rounded-xl bg-dnd-dark text-dnd-text/40 group-hover:text-white transition-colors">
                             <Icon name="shield" className="w-6 h-6" />
                         </div>
                         <div>
-                            <div className="font-bold text-white">Seeker Registry</div>
-                            <div className="text-xs text-dnd-text/40">Manage players and their fates</div>
+                            <div className="font-bold text-white">User Manager</div>
+                            <div className="text-xs text-dnd-text/40">Manage players and their roles</div>
                         </div>
                     </button>
                 </div>
@@ -143,7 +154,7 @@ export const DMToolsModal: React.FC<DMToolsModalProps> = ({
                 <div className="pt-6 border-t border-white/5">
                     <button onClick={onSignOut} className="w-full flex items-center justify-center gap-3 p-4 rounded-2xl bg-dnd-red/10 hover:bg-dnd-red/20 border border-dnd-red/20 text-dnd-red hover:brightness-125 transition-all font-bold uppercase tracking-widest text-xs shadow-xl shadow-dnd-red/10">
                         <Icon name="logout" className="w-5 h-5" />
-                        Sever Connection
+                        Logout
                     </button>
                 </div>
             </div>
@@ -199,7 +210,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Soul Resonance">
+        <Modal isOpen={isOpen} onClose={onClose} title="User Settings">
             <form onSubmit={handleSave} className="space-y-8">
                 <div className="flex flex-col items-center gap-6">
                     <div className="w-32 h-32 rounded-[2.5rem] bg-dnd-dark border-2 border-white/10 flex items-center justify-center overflow-hidden relative group shadow-2xl ring-4 ring-white/5">
@@ -214,7 +225,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
                     <div className="flex gap-3 w-full max-w-sm">
                          <input 
                             type="text" 
-                            placeholder="Portrait URL" 
+                            placeholder="Image URL" 
                             value={imageUrl} 
                             onChange={e => setImageUrl(e.target.value)} 
                             className="flex-1 bg-black/20 border border-white/5 rounded-xl px-4 py-2 text-xs text-dnd-text/60 focus:outline-none focus:border-dnd-gold/50 transition-all"
@@ -224,14 +235,14 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
                 </div>
 
                 <div className="space-y-3">
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Manifested Name</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Username</label>
                     <input 
                         type="text" 
                         value={username} 
                         onChange={e => setUsername(e.target.value)} 
                         className="w-full rounded-2xl border border-white/5 bg-black/20 px-5 py-4 text-white font-bold focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner" 
                     />
-                    <p className="text-[10px] text-dnd-gold/60 italic font-medium">This name will be chronicled in the world's history.</p>
+                    <p className="text-[10px] text-dnd-gold/60 italic font-medium">This name will be recorded in the world's history.</p>
                 </div>
 
                 {msg && (
@@ -248,7 +259,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
                 <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
                     <button type="button" onClick={onClose} className="text-dnd-text/40 hover:text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all">Cancel</button>
                     <button type="submit" disabled={loading} className="bg-dnd-gold hover:brightness-110 text-white font-bold px-8 py-3 rounded-2xl shadow-xl shadow-dnd-gold/20 disabled:opacity-50 transition-all uppercase tracking-widest text-xs">
-                        {loading ? <Icon name="spinner" className="w-5 h-5 animate-spin"/> : 'Commit Changes'}
+                        {loading ? <Icon name="spinner" className="w-5 h-5 animate-spin"/> : 'Save Settings'}
                     </button>
                 </div>
             </form>
@@ -260,6 +271,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
 interface PlayerManagerModalProps { isOpen: boolean; onClose: () => void; }
 export const PlayerManagerModal: React.FC<PlayerManagerModalProps> = ({ isOpen, onClose }) => {
     const { user } = useAuth();
+    const { setError } = useAppContext();
     const [view, setView] = useState<'list' | 'create'>('list');
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [loading, setLoading] = useState(false);
@@ -360,24 +372,25 @@ export const PlayerManagerModal: React.FC<PlayerManagerModalProps> = ({ isOpen, 
             setEditingUser(null);
             fetchUsers();
         } catch (e: any) {
-            alert(`Error updating user: ${e.message}. Run database_updates.txt if permissions fail.`);
+            setError({ message: "Error updating user", details: e });
         } finally {
             setLoading(false);
         }
     };
 
     const handleDeleteUser = async (id: string) => {
-        if(!confirm("Are you sure? This deletes their profile data and access. (Auth account requires admin cleanup).")) return;
+        setLoading(true);
         const { error } = await supabase.from('users').delete().eq('id', id);
         if (error) {
-            alert(`Error deleting user: ${error.message}. Run database_updates.txt if permissions fail.`);
+            setError({ message: "Error deleting user", details: error });
         } else {
             fetchUsers();
         }
+        setLoading(false);
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Seeker Registry" maxWidthClass="max-w-4xl">
+        <Modal isOpen={isOpen} onClose={onClose} title="User Manager" maxWidthClass="max-w-4xl">
             <div className="flex gap-4 mb-8 border-b border-white/5 pb-4">
                 <button 
                     onClick={() => setView('list')} 
@@ -386,7 +399,7 @@ export const PlayerManagerModal: React.FC<PlayerManagerModalProps> = ({ isOpen, 
                         view === 'list' ? 'bg-white/10 text-white border border-white/10' : 'text-dnd-text/40 hover:text-white'
                     )}
                 >
-                    Registry List
+                    User List
                 </button>
                 <button 
                     onClick={() => setView('create')} 
@@ -395,14 +408,14 @@ export const PlayerManagerModal: React.FC<PlayerManagerModalProps> = ({ isOpen, 
                         view === 'create' ? 'bg-white/10 text-white border border-white/10' : 'text-dnd-text/40 hover:text-white'
                     )}
                 >
-                    Manifest Seeker
+                    Create User
                 </button>
             </div>
 
             {view === 'list' && (
                 <div className="space-y-4">
                     {loading && users.length === 0 && <div className="text-center py-8"><Icon name="spinner" className="animate-spin h-8 w-8 mx-auto text-dnd-gold"/></div>}
-                    {!loading && users.length === 0 && <p className="text-center text-dnd-text/20 py-8 italic">No seekers have been chronicled yet.</p>}
+                    {!loading && users.length === 0 && <p className="text-center text-dnd-text/20 py-8 italic">No users have been recorded yet.</p>}
                     
                     <div className="grid grid-cols-1 gap-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
                         {users.map(u => (
@@ -455,12 +468,12 @@ export const PlayerManagerModal: React.FC<PlayerManagerModalProps> = ({ isOpen, 
                  <form onSubmit={handleCreateSubmit} className="space-y-8">
                     <div className="bg-dnd-gold/5 p-6 rounded-2xl border border-dnd-gold/10 mb-4 shadow-inner">
                         <p className="text-sm text-dnd-text/60 leading-relaxed">
-                            Manifest a new seeker in this realm. They will log in using only the name provided below.
+                            Create a new user for this realm. They will log in using only the username provided below.
                         </p>
                     </div>
 
                     <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Seeker Name</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Username</label>
                         <input 
                             type="text" 
                             value={username} 
@@ -471,21 +484,21 @@ export const PlayerManagerModal: React.FC<PlayerManagerModalProps> = ({ isOpen, 
                     </div>
 
                     <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Destiny (Role)</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Role</label>
                         <div className="flex gap-4">
                             <label className={cn(
                                 "flex-1 cursor-pointer rounded-2xl border px-6 py-4 text-center transition-all shadow-lg",
                                 role === 'Player' ? 'bg-dnd-gold/10 border-dnd-gold/30 text-dnd-gold' : 'bg-white/5 border-white/5 text-dnd-text/40 hover:bg-white/10'
                             )}>
                                 <input type="radio" className="hidden" checked={role === 'Player'} onChange={() => setRole('Player')} />
-                                <span className="font-bold uppercase tracking-widest text-xs">Seeker</span>
+                                <span className="font-bold uppercase tracking-widest text-xs">Player</span>
                             </label>
                             <label className={cn(
                                 "flex-1 cursor-pointer rounded-2xl border px-6 py-4 text-center transition-all shadow-lg",
                                 role === 'DM' ? 'bg-dnd-red/10 border-dnd-red/30 text-dnd-red' : 'bg-white/5 border-white/5 text-dnd-text/40 hover:bg-white/10'
                             )}>
                                 <input type="radio" className="hidden" checked={role === 'DM'} onChange={() => setRole('DM')} />
-                                <span className="font-bold uppercase tracking-widest text-xs">Weaver</span>
+                                <span className="font-bold uppercase tracking-widest text-xs">DM</span>
                             </label>
                         </div>
                     </div>
@@ -502,7 +515,7 @@ export const PlayerManagerModal: React.FC<PlayerManagerModalProps> = ({ isOpen, 
                     )}
 
                     <button type="submit" disabled={loading} className="w-full bg-dnd-gold hover:brightness-110 text-white font-bold py-4 px-8 rounded-2xl shadow-xl shadow-dnd-gold/20 transition-all disabled:opacity-50 uppercase tracking-widest text-xs">
-                        {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin mx-auto"/> : 'Manifest Seeker'}
+                        {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin mx-auto"/> : 'Create User'}
                     </button>
                 </form>
             )}
@@ -538,8 +551,8 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
 
     const handleEdit = (map: MapType) => {
         setEditingMap(map); setIsEditing(true);
-        setName(map.name); setImageUrl(map.image_url); setParentMapId(map.parent_map_id || '');
-        setIsVisible(map.is_visible); setGridSize(map.grid_size || 50); 
+        setName(map.name || ''); setImageUrl(map.image_url || ''); setParentMapId(map.parent_map_id || '');
+        setIsVisible(map.is_visible ?? true); setGridSize(map.grid_size || 50); 
         setPinScale(map.pin_scale || 50); setIsGridVisible(map.is_grid_visible || false);
         setMapType(map.map_type || 'region');
     };
@@ -598,11 +611,11 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
     };
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm("Are you sure? This will delete the map and all its pins.")) return;
         setLoading(true);
         const { error } = await supabase.from('maps').delete().eq('id', id);
         if (!error) {
             removeLocalItem('map', id);
+            resetForm();
         } else {
             setError({ message: "Error deleting map", details: error });
         }
@@ -610,21 +623,20 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Cartography Sanctum" maxWidthClass="max-w-5xl">
+        <Modal isOpen={isOpen} onClose={onClose} title="Map Manager" maxWidthClass="max-w-5xl">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
                 {/* List */}
                 <div className="md:col-span-1 border-r border-white/5 pr-6 space-y-6">
                     <button onClick={resetForm} className="w-full flex items-center justify-center space-x-3 bg-white/5 hover:bg-white/10 text-white font-bold py-4 px-6 rounded-2xl transition-all border border-white/5 shadow-lg group">
                         <Icon name="plus" className="h-5 w-5 text-dnd-gold group-hover:rotate-90 transition-transform" />
-                        <span className="text-xs uppercase tracking-widest">New Realm</span>
+                        <span className="text-xs uppercase tracking-widest">New Map</span>
                     </button>
                     <div className="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
                         {maps.map(map => (
-                            <div key={map.id} className="group flex items-center justify-between p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all">
+                            <div key={map.id} className="group flex items-center justify-between p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all cursor-pointer" onClick={() => handleEdit(map)}>
                                 <span className="text-sm text-dnd-text/60 truncate font-medium group-hover:text-white">{map.name}</span>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                    <button onClick={() => handleEdit(map)} className="p-2 hover:text-dnd-gold text-dnd-text/20 transition-colors"><Icon name="pencil" className="w-4 h-4"/></button>
-                                    <button onClick={() => handleDelete(map.id)} className="p-2 hover:text-dnd-red text-dnd-text/20 transition-colors"><Icon name="trash" className="w-4 h-4"/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleEdit(map); }} className="p-2 hover:text-dnd-gold text-dnd-text/20 transition-colors"><Icon name="pencil" className="w-4 h-4"/></button>
                                 </div>
                             </div>
                         ))}
@@ -633,11 +645,11 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
 
                 {/* Form */}
                 <div className="md:col-span-2">
-                    <h3 className="text-2xl font-serif text-white font-bold mb-8 border-b border-white/5 pb-4">{isEditing ? 'Refine Realm' : 'Forge New Realm'}</h3>
+                    <h3 className="text-2xl font-serif text-white font-bold mb-8 border-b border-white/5 pb-4">{isEditing ? 'Edit Map' : 'Create Map'}</h3>
                     <form onSubmit={handleSave} className="space-y-8">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                              <div className="space-y-3">
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Realm Name</label>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Map Name</label>
                                 <input 
                                     type="text" 
                                     placeholder="e.g. The Whispering Woods" 
@@ -648,7 +660,7 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
                                 />
                              </div>
                              <div className="space-y-3">
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Realm Type</label>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Map Type</label>
                                 <select 
                                     value={mapType} 
                                     onChange={e => setMapType(e.target.value as MapTypeEnum)} 
@@ -669,7 +681,7 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
                                     "cursor-pointer px-6 py-3 rounded-xl text-[10px] text-white font-bold uppercase tracking-widest transition-all shadow-lg",
                                     isEditing ? 'bg-dnd-gold/80 hover:brightness-110' : 'bg-white/10 hover:bg-white/20'
                                 )}>
-                                    {isEditing ? 'Replace Visage' : 'Upload Visage'}
+                                    {isEditing ? 'Replace Image' : 'Upload Image'}
                                     <input type="file" className="hidden" accept="image/*" onChange={e => {
                                         if (e.target.files?.[0]) { setImageFile(e.target.files[0]); setImageUrl(''); }
                                     }} />
@@ -677,7 +689,7 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
                                 <span className="text-[10px] text-dnd-text/20 font-bold uppercase tracking-widest">OR</span>
                                 <input 
                                     type="text" 
-                                    placeholder="Visage URL" 
+                                    placeholder="Image URL" 
                                     value={imageUrl} 
                                     onChange={e => { setImageUrl(e.target.value); setImageFile(null); }} 
                                     className="flex-1 bg-transparent border-b border-white/5 text-xs text-dnd-text/60 py-2 focus:outline-none focus:border-dnd-gold/50 transition-all" 
@@ -687,24 +699,24 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
                                 <div className="relative group">
                                     <img src={imageUrl || (imageFile ? URL.createObjectURL(imageFile) : '')} className="h-48 w-full object-cover rounded-2xl border border-white/10 shadow-2xl" alt="Preview" referrerPolicy="no-referrer" />
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center">
-                                        <span className="text-white font-bold uppercase tracking-widest text-[10px]">Previewing Visage</span>
+                                        <span className="text-white font-bold uppercase tracking-widest text-[10px]">Previewing Image</span>
                                     </div>
                                 </div>
                             )}
                              {isEditing && (
-                                <p className="text-[10px] text-dnd-text/40 mt-4 italic font-medium leading-relaxed">Note: Replacing the visage will preserve all sigils in their relative positions. Ensure the new visage maintains the same aspect ratio.</p>
+                                <p className="text-[10px] text-dnd-text/40 mt-4 italic font-medium leading-relaxed">Note: Replacing the image will preserve all pins in their relative positions. Ensure the new image maintains the same aspect ratio.</p>
                              )}
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                              <div className="space-y-3">
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Parent Realm</label>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Parent Map</label>
                                 <select 
                                     value={parentMapId} 
                                     onChange={e => setParentMapId(e.target.value)} 
                                     className="w-full rounded-2xl border border-white/5 bg-black/20 px-4 py-3 text-sm text-dnd-text/60 focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner font-bold"
                                 >
-                                    <option value="">(None - Top Level)</option>
+                                    <option value="">(None - Root Map)</option>
                                     {maps.filter(m => m.id !== editingMap?.id).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                                 </select>
                              </div>
@@ -721,7 +733,7 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
 
                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                              <div className="space-y-3">
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Sigil Scale (px)</label>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Pin Scale (px)</label>
                                 <input 
                                     type="number" 
                                     value={pinScale} 
@@ -748,14 +760,24 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
                                         {isVisible && <Icon name="check" className="w-3 h-3 text-white" />}
                                     </div>
                                     <input type="checkbox" className="hidden" checked={isVisible} onChange={e => setIsVisible(e.target.checked)} />
-                                    Visible to Seekers
+                                    Visible to Players
                                 </label>
                              </div>
                          </div>
 
-                        <div className="flex justify-end pt-8 border-t border-white/5">
-                             <button type="submit" disabled={loading} className="bg-dnd-gold hover:brightness-110 text-white font-bold py-4 px-10 rounded-2xl shadow-xl shadow-dnd-gold/20 transition-all disabled:opacity-50 uppercase tracking-widest text-xs">
-                                {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Commit Realm'}
+                        <div className="flex justify-between items-center pt-8 border-t border-white/5">
+                             {isEditing && (
+                                 <button 
+                                    type="button" 
+                                    onClick={() => handleDelete(editingMap!.id!)} 
+                                    className="flex items-center gap-2 text-dnd-red hover:brightness-125 transition-all font-bold uppercase tracking-widest text-xs"
+                                >
+                                    <Icon name="trash" className="w-4 h-4" />
+                                    Delete Map
+                                </button>
+                             )}
+                             <button type="submit" disabled={loading} className="bg-dnd-gold hover:brightness-110 text-white font-bold py-4 px-10 rounded-2xl shadow-xl shadow-dnd-gold/20 transition-all disabled:opacity-50 uppercase tracking-widest text-xs ml-auto">
+                                {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Save Map'}
                              </button>
                         </div>
                     </form>
@@ -768,7 +790,7 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
 // --- PIN TYPE MANAGER MODAL ---
 interface PinTypeManagerModalProps { isOpen: boolean; onClose: () => void; }
 export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen, onClose }) => {
-    const { pinTypes, updateLocalPinType, removeLocalItem } = useAppContext();
+    const { pinTypes, updateLocalPinType, removeLocalItem, setError } = useAppContext();
     const { user } = useAuth();
     const [editingType, setEditingType] = useState<Partial<PinType> | null>(null);
     const [isEditing, setIsEditing] = useState(false);
@@ -793,38 +815,48 @@ export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen
         if (!user) return;
         setLoading(true);
         const payload: any = { name, emoji, color };
-        let data;
 
-        if (isEditing && editingType?.id) {
-            const res = await supabase.from('pin_types').update(payload).eq('id', editingType.id).select().single();
-            data = res.data;
-        } else {
-            payload.created_by = user.id;
-            const res = await supabase.from('pin_types').insert(payload).select().single();
-            data = res.data;
+        try {
+            let res;
+            if (isEditing && editingType?.id) {
+                res = await supabase.from('pin_types').update(payload).eq('id', editingType.id).select().single();
+            } else {
+                payload.created_by = user.id;
+                res = await supabase.from('pin_types').insert(payload).select().single();
+            }
+
+            if (res.error) {
+                console.error("Error saving pin type:", res.error);
+                setError({ message: "Error saving pin type", details: res.error });
+            } else if (res.data) {
+                updateLocalPinType(res.data as PinType);
+                resetForm();
+            }
+        } catch (err: any) {
+            console.error("Exception saving pin type:", err);
+            setError({ message: "Error saving pin type", details: err });
+        } finally {
+            setLoading(false);
         }
-
-        if (data) updateLocalPinType(data as PinType);
-
-        setLoading(false);
-        resetForm();
     };
 
     const handleDelete = async (id: string) => {
-        if(!confirm("Sever this sigil type? Existing sigils will remain but their essence may fade.")) return;
         setLoading(true);
         const { error } = await supabase.from('pin_types').delete().eq('id', id);
-        if(!error) removeLocalItem('pintype', id);
+        if(!error) {
+            removeLocalItem('pintype', id);
+            resetForm();
+        }
         setLoading(false);
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Sigil Weaver" maxWidthClass="max-w-4xl">
+        <Modal isOpen={isOpen} onClose={onClose} title="Pin Types" maxWidthClass="max-w-4xl">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
                 <div className="md:col-span-1 border-r border-white/5 pr-6 space-y-6">
                      <button onClick={resetForm} className="w-full flex items-center justify-center space-x-3 bg-white/5 hover:bg-white/10 text-white font-bold py-4 px-6 rounded-2xl transition-all border border-white/5 shadow-lg group">
                         <Icon name="plus" className="h-5 w-5 text-dnd-gold group-hover:rotate-90 transition-transform" />
-                        <span className="text-xs uppercase tracking-widest">New Sigil</span>
+                        <span className="text-xs uppercase tracking-widest">New Type</span>
                     </button>
                     <div className="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
                         {pinTypes.map(pt => (
@@ -842,10 +874,10 @@ export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen
                     </div>
                 </div>
                 <div className="md:col-span-2">
-                    <h3 className="text-2xl font-serif text-white font-bold mb-8 border-b border-white/5 pb-4">{isEditing ? 'Refine Sigil' : 'Forge New Sigil'}</h3>
+                    <h3 className="text-2xl font-serif text-white font-bold mb-8 border-b border-white/5 pb-4">{isEditing ? 'Edit Pin Type' : 'Create Pin Type'}</h3>
                     <form onSubmit={handleSave} className="space-y-8">
                          <div className="space-y-3">
-                            <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Sigil Name</label>
+                            <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Type Name</label>
                             <input 
                                 type="text" 
                                 value={name} 
@@ -866,7 +898,7 @@ export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen
                                 />
                             </div>
                              <div className="space-y-3">
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Aura Color</label>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Pin Color</label>
                                 <div className="flex gap-4 items-center">
                                     <div className="relative w-16 h-16 rounded-2xl overflow-hidden shadow-lg ring-2 ring-white/5">
                                         <input 
@@ -887,19 +919,19 @@ export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen
                         </div>
 
                         <div className="bg-white/5 p-8 rounded-3xl border border-white/5 shadow-inner flex flex-col items-center gap-4">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Sigil Preview</span>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Pin Preview</span>
                             <div className="relative">
                                 <div className="absolute inset-0 blur-xl opacity-40 rounded-full" style={{ backgroundColor: color }}></div>
                                 <div className="relative w-20 h-20 rounded-2xl bg-dnd-dark border-2 border-white/10 flex items-center justify-center text-4xl shadow-2xl" style={{ borderColor: `${color}40` }}>
                                     {emoji}
                                 </div>
                             </div>
-                            <span className="text-white font-bold tracking-tight">{name || 'Unnamed Sigil'}</span>
+                            <span className="text-white font-bold tracking-tight">{name || 'Unnamed Pin'}</span>
                         </div>
 
                          <div className="flex justify-end pt-8 border-t border-white/5">
                              <button type="submit" disabled={loading} className="bg-dnd-gold hover:brightness-110 text-white font-bold py-4 px-10 rounded-2xl shadow-xl shadow-dnd-gold/20 transition-all disabled:opacity-50 uppercase tracking-widest text-xs">
-                                {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Bind Sigil'}
+                                {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Save Type'}
                              </button>
                         </div>
                     </form>
@@ -910,8 +942,12 @@ export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen
 };
 
 // --- CHARACTER MANAGER MODAL ---
-interface CharacterManagerModalProps { isOpen: boolean; onClose: () => void; }
-export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ isOpen, onClose }) => {
+interface CharacterManagerModalProps { 
+    isOpen: boolean; 
+    onClose: () => void; 
+    initialEditItem?: Character | null;
+}
+export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ isOpen, onClose, initialEditItem }) => {
     const { characters, updateLocalCharacter, removeLocalItem, setError } = useAppContext();
     const { user } = useAuth();
     const [editingChar, setEditingChar] = useState<Partial<Character> | null>(null);
@@ -939,7 +975,7 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
 
     const handleEdit = (c: Character) => {
         setEditingChar(c); setIsEditing(true);
-        setName(c.name);
+        setName(c.name || '');
         setRace(c.role_details?.race || '');
         setCharClass(c.role_details?.class || '');
         setLevel(c.role_details?.level || 1);
@@ -948,9 +984,15 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
         setGmNotes(c.gm_notes || '');
         setImageUrl(c.image_url || '');
         setSheetUrl(c.sheet_url || '');
-        setIsNpc(c.is_npc);
-        setIsVisible(c.is_visible);
+        setIsNpc(c.is_npc ?? true);
+        setIsVisible(c.is_visible ?? true);
     };
+
+    useEffect(() => {
+        if (initialEditItem) {
+            handleEdit(initialEditItem);
+        }
+    }, [initialEditItem]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -972,36 +1014,48 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
             payload.created_by = user.id;
         }
 
-        let data;
-        if (isEditing && editingChar?.id) {
-            const res = await supabase.from('characters').update(payload).eq('id', editingChar.id).select().single();
-            data = res.data;
-        } else {
-            const res = await supabase.from('characters').insert(payload).select().single();
-            data = res.data;
+        try {
+            let res;
+            if (isEditing && editingChar?.id) {
+                res = await supabase.from('characters').update(payload).eq('id', editingChar.id).select().single();
+            } else {
+                res = await supabase.from('characters').insert(payload).select().single();
+            }
+
+            if (res.error) {
+                console.error("Error saving character:", res.error);
+                setError({ message: "Error saving character", details: res.error });
+            } else if (res.data) {
+                updateLocalCharacter(res.data as Character);
+                resetForm();
+            }
+        } catch (err: any) {
+            console.error("Exception saving character:", err);
+            setError({ message: "Error saving character", details: err });
+        } finally {
+            setLoading(false);
         }
-
-        if (data) updateLocalCharacter(data as Character);
-
-        setLoading(false);
-        resetForm();
     };
     
     const handleDelete = async (id: string) => {
-        if(!confirm("Sever the thread of this soul? This action is irreversible.")) return;
         setLoading(true);
         const { error } = await supabase.from('characters').delete().eq('id', id);
-        if (!error) removeLocalItem('character', id);
+        if (!error) {
+            removeLocalItem('character', id);
+            resetForm();
+        } else {
+            setError({ message: "Error deleting character", details: error });
+        }
         setLoading(false);
     };
 
     return (
-         <Modal isOpen={isOpen} onClose={onClose} title="Souls & Shadows" maxWidthClass="max-w-6xl">
+         <Modal isOpen={isOpen} onClose={onClose} title="Characters" maxWidthClass="max-w-6xl">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
                 <div className="md:col-span-1 border-r border-white/5 pr-6 space-y-6">
                     <button onClick={resetForm} className="w-full flex items-center justify-center space-x-3 bg-white/5 hover:bg-white/10 text-white font-bold py-4 px-6 rounded-2xl transition-all border border-white/5 shadow-lg group">
                         <Icon name="plus" className="h-5 w-5 text-dnd-gold group-hover:rotate-90 transition-transform" />
-                        <span className="text-xs uppercase tracking-widest">Manifest Soul</span>
+                        <span className="text-xs uppercase tracking-widest">Create Character</span>
                     </button>
                     <div className="space-y-2 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
                         {characters.map(c => (
@@ -1022,11 +1076,11 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
                 </div>
 
                 <div className="md:col-span-3">
-                    <h3 className="text-2xl font-serif text-white font-bold mb-8 border-b border-white/5 pb-4">{isEditing ? 'Refine Soul' : 'Forge New Soul'}</h3>
+                    <h3 className="text-2xl font-serif text-white font-bold mb-8 border-b border-white/5 pb-4">{isEditing ? 'Edit Character' : 'Create Character'}</h3>
                     <form onSubmit={handleSave} className="space-y-8">
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-3">
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">True Name</label>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Name</label>
                                 <input 
                                     type="text" 
                                     value={name} 
@@ -1050,33 +1104,33 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
                                 )}>
                                     <input type="checkbox" checked={isVisible} onChange={e => setIsVisible(e.target.checked)} className="hidden" />
                                     <Icon name={isVisible ? 'check' : 'close'} className="w-4 h-4" />
-                                    <span className="font-bold uppercase tracking-widest text-[10px]">Visible to Seekers</span>
+                                    <span className="font-bold uppercase tracking-widest text-[10px]">Visible to Players</span>
                                 </label>
                             </div>
                          </div>
                          
                          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Ancestry</label>
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Race</label>
                                 <input type="text" value={race} onChange={e => setRace(e.target.value)} className="w-full rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-white font-bold focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner"/>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Calling</label>
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Class</label>
                                 <input type="text" value={charClass} onChange={e => setCharClass(e.target.value)} className="w-full rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-white font-bold focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner"/>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Essence Level</label>
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Level</label>
                                 <input type="number" value={level} onChange={e => setLevel(parseInt(e.target.value))} className="w-full rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-white font-bold focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner"/>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Moral Sigil</label>
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Alignment</label>
                                 <input type="text" value={alignment} onChange={e => setAlignment(e.target.value)} className="w-full rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-white font-bold focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner"/>
                             </div>
-                         </div>
+                         </div> 
 
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-3">
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Portrait Visage (URL)</label>
+                             <div className="space-y-3">
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Portrait Image (URL)</label>
                                 <div className="flex gap-3">
                                     <input 
                                         type="text" 
@@ -1103,7 +1157,7 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
                                 </div>
                             </div>
                             <div className="space-y-3">
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Chronicle Link (Optional)</label>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">External Link (Optional)</label>
                                 <input 
                                     type="text" 
                                     value={sheetUrl} 
@@ -1116,7 +1170,7 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
 
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-3">
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">The Chronicle (Backstory)</label>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Backstory</label>
                                 <textarea 
                                     value={backstory} 
                                     onChange={e => setBackstory(e.target.value)} 
@@ -1125,7 +1179,7 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
                                 />
                             </div>
                              <div className="space-y-3">
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-red/60">Weaver's Secrets (DM Notes)</label>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-red/60">DM Notes</label>
                                 <textarea 
                                     value={gmNotes} 
                                     onChange={e => setGmNotes(e.target.value)} 
@@ -1135,9 +1189,19 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
                             </div>
                          </div>
 
-                         <div className="flex justify-end pt-8 border-t border-white/5">
-                             <button type="submit" disabled={loading} className="bg-dnd-gold hover:brightness-110 text-white font-bold py-4 px-12 rounded-2xl shadow-xl shadow-dnd-gold/20 transition-all disabled:opacity-50 uppercase tracking-widest text-xs">
-                                {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Commit Soul'}
+                         <div className="flex justify-between items-center pt-8 border-t border-white/5">
+                             {isEditing && (
+                                 <button 
+                                    type="button" 
+                                    onClick={() => handleDelete(editingChar!.id!)} 
+                                    className="flex items-center gap-2 text-dnd-red hover:brightness-125 transition-all font-bold uppercase tracking-widest text-xs"
+                                >
+                                    <Icon name="trash" className="w-4 h-4" />
+                                    Delete Character
+                                </button>
+                             )}
+                             <button type="submit" disabled={loading} className="bg-dnd-gold hover:brightness-110 text-white font-bold py-4 px-12 rounded-2xl shadow-xl shadow-dnd-gold/20 transition-all disabled:opacity-50 uppercase tracking-widest text-xs ml-auto">
+                                {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Save Character'}
                              </button>
                         </div>
                     </form>
@@ -1155,13 +1219,14 @@ interface PinEditorModalProps {
 }
 
 export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose, onSave }) => {
-    const { pinTypes, maps, setError } = useAppContext();
+    const { pinTypes, maps, removeLocalItem, setError } = useAppContext();
     const { user } = useAuth();
     const { items: allItems } = useItems(); // From ItemProvider
     
     // Form State
     const [title, setTitle] = useState(pinData.title || '');
     const [pinTypeId, setPinTypeId] = useState(pinData.pin_type_id || (pinTypes[0]?.id || ''));
+    const [wikiPageId, setWikiPageId] = useState(pinData.wiki_page_id || '');
     const [isVisible, setIsVisible] = useState(pinData.is_visible ?? false);
     const [description, setDescription] = useState(pinData.data?.description || '');
     const [linkedMapId, setLinkedMapId] = useState(pinData.linked_map_id || '');
@@ -1173,8 +1238,9 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
     const [itemSearch, setItemSearch] = useState('');
 
     const addSection = (type: PinSectionType) => {
+        const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11);
         setSections([...sections, {
-            id: crypto.randomUUID(),
+            id,
             type,
             title: type === 'secret' ? 'Secret Note' : type.charAt(0).toUpperCase() + type.slice(1),
             content: '',
@@ -1217,50 +1283,74 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
         setLoading(true);
 
         const payload: Partial<Pin> = {
-            title,
+            title: title || '',
             pin_type_id: pinTypeId,
-            is_visible: isVisible,
+            wiki_page_id: wikiPageId || null,
+            is_visible: isVisible ?? false,
             linked_map_id: linkedMapId || null,
             data: {
                 ...pinData.data,
-                description,
-                sections,
+                description: description || '',
+                sections: sections || [],
                 images: pinData.data?.images || []
             },
             // If new pin, include coords
             ...(pinData.x_coord !== undefined ? { x_coord: pinData.x_coord, y_coord: pinData.y_coord, map_id: pinData.map_id } : {})
         };
 
-        let result;
         try {
+            let result;
             if (pinData.id) {
-                result = await supabase.from('pins').update(payload).eq('id', pinData.id).select('*, pin_types(*)').single();
+                result = await supabase.from('pins').update(payload).eq('id', pinData.id).select().single();
             } else if (user) {
-                result = await supabase.from('pins').insert({ ...payload, created_by: user.id }).select('*, pin_types(*)').single();
+                result = await supabase.from('pins').insert({ ...payload, created_by: user.id }).select().single();
             }
             
+            console.log("Pin Save Response:", result);
+
             if (result?.error) {
+                console.error("Error saving pin:", result.error);
                 setError({ message: "Error saving sigil", details: result.error });
             }
 
             if (result?.data) {
-                await onSave(result.data as Pin);
+                // Manually attach pin_types from local state
+                const fullData = {
+                    ...result.data,
+                    pin_types: pinTypes.find(t => t.id === result.data.pin_type_id) || null
+                };
+                await onSave(fullData as Pin);
             } else {
                 await onSave();
             }
         } catch (err: any) {
+            console.error("Exception saving pin:", err);
             setError({ message: "Error saving sigil", details: err });
             await onSave();
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!pinData.id) return;
+        setLoading(true);
+        const { error } = await supabase.from('pins').delete().eq('id', pinData.id);
+        if (!error) {
+            removeLocalItem('pin', pinData.id);
+            onSave();
+        } else {
+            setError({ message: "Error deleting pin", details: error });
         }
         setLoading(false);
     };
 
     return (
-        <Modal isOpen={true} onClose={onClose} title={pinData.id ? "Refine Sigil" : "Forge Sigil"} maxWidthClass="max-w-5xl">
+        <Modal isOpen={true} onClose={onClose} title={pinData.id ? "Edit Pin" : "Create Pin"} maxWidthClass="max-w-5xl">
             <form onSubmit={handleSaveLocal} className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                      <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Sigil Title</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Pin Title</label>
                         <input 
                             type="text" 
                             value={title} 
@@ -1271,7 +1361,7 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                         />
                     </div>
                     <div className="space-y-3">
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Sigil Essence (Type)</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Pin Type</label>
                         <select 
                             value={pinTypeId} 
                             onChange={e => setPinTypeId(e.target.value)} 
@@ -1294,11 +1384,11 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                             {isVisible && <Icon name="check" className="w-4 h-4 text-dnd-gold" />}
                         </div>
                         <input type="checkbox" checked={isVisible} onChange={e => setIsVisible(e.target.checked)} className="hidden" />
-                        Visible to Seekers
+                        Visible to Players
                     </label>
                     <div className="hidden md:block h-8 w-px bg-white/5"></div>
                      <div className="flex-1 flex items-center gap-4 min-w-[200px]">
-                         <span className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 whitespace-nowrap">Link to Realm:</span>
+                         <span className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 whitespace-nowrap">Link to Map:</span>
                          <select 
                             value={linkedMapId} 
                             onChange={e => setLinkedMapId(e.target.value)} 
@@ -1308,23 +1398,35 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                             {maps.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                          </select>
                      </div>
+                     <div className="hidden md:block h-8 w-px bg-white/5"></div>
+                     <div className="flex-1 flex items-center gap-4 min-w-[200px]">
+                         <span className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 whitespace-nowrap">Link to Wiki:</span>
+                         <select 
+                            value={wikiPageId} 
+                            onChange={e => setWikiPageId(e.target.value)} 
+                            className="flex-1 rounded-xl bg-black/20 border border-white/5 px-4 py-2 text-xs text-dnd-text/60 focus:outline-none focus:border-dnd-gold/50 transition-all"
+                        >
+                            <option value="">(None)</option>
+                            {useAppContext().wikiPages.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                         </select>
+                     </div>
                 </div>
 
                 <div className="space-y-3">
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">The Primal Description</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Description</label>
                     <textarea 
                         value={description} 
                         onChange={e => setDescription(e.target.value)} 
                         rows={4} 
                         className="w-full rounded-2xl border border-white/5 bg-black/20 px-5 py-4 text-sm text-dnd-text/60 focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner custom-scrollbar"
-                        placeholder="Describe the essence of this point in the weave..."
+                        placeholder="Describe this location..."
                     />
                 </div>
                 
                 {/* Sections Editor */}
                 <div className="space-y-6 pt-8 border-t border-white/5">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Chronicle Sections</h3>
+                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Sections</h3>
                         <div className="flex flex-wrap gap-2">
                              {(['text', 'image', 'list', 'statblock', 'inventory', 'secret'] as PinSectionType[]).map(type => (
                                  <button 
@@ -1370,7 +1472,7 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                                         onChange={e => updateSection(section.id, {content: e.target.value})} 
                                         rows={3} 
                                         className="w-full bg-black/20 rounded-2xl p-4 text-sm text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all custom-scrollbar" 
-                                        placeholder="Weave your words here..."
+                                        placeholder="Enter content here..."
                                     />
                                 )}
                                 
@@ -1490,7 +1592,7 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                                                 value={itemSearch} 
                                                 onChange={e => setItemSearch(e.target.value)} 
                                                 className="w-full bg-black/20 rounded-2xl pl-12 pr-6 py-4 text-sm text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner" 
-                                                placeholder="Search the Great Archives for items..."
+                                                placeholder="Search for items..."
                                             />
                                             {itemSearch && (
                                                 <div className="absolute top-full left-0 w-full mt-2 bg-dnd-panel border border-white/10 rounded-2xl max-h-60 overflow-y-auto z-20 shadow-2xl backdrop-blur-xl custom-scrollbar">
@@ -1543,16 +1645,424 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                     </div>
                 </div>
 
-                <div className="flex justify-end pt-8 border-t border-white/5">
+                <div className="flex justify-between items-center pt-8 border-t border-white/5">
+                    {pinData.id && (
+                        <button 
+                            type="button" 
+                            onClick={handleDelete} 
+                            className="flex items-center gap-2 text-dnd-red hover:brightness-125 transition-all font-bold uppercase tracking-widest text-xs"
+                        >
+                            <Icon name="trash" className="w-4 h-4" />
+                            Delete Pin
+                        </button>
+                    )}
                     <button 
                         type="submit" 
                         disabled={loading} 
-                        className="bg-dnd-gold hover:brightness-110 text-white font-bold py-4 px-12 rounded-2xl shadow-xl shadow-dnd-gold/20 transition-all disabled:opacity-50 uppercase tracking-widest text-xs"
+                        className="bg-dnd-gold hover:brightness-110 text-white font-bold py-4 px-12 rounded-2xl shadow-xl shadow-dnd-gold/20 transition-all disabled:opacity-50 uppercase tracking-widest text-xs ml-auto"
                     >
-                        {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Commit Sigil'}
+                        {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Save Pin'}
                     </button>
                 </div>
             </form>
         </Modal>
     );
 };
+
+// --- WIKI PAGE MANAGER MODAL ---
+interface WikiPageManagerModalProps { 
+    isOpen: boolean; 
+    onClose: () => void; 
+    initialEditItem?: WikiPage | null;
+}
+export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOpen, onClose, initialEditItem }) => {
+    const { wikiPages, pinTypes, updateLocalWikiPage, removeLocalItem, setError } = useAppContext();
+    const { user } = useAuth();
+    const [editingPage, setEditingPage] = useState<Partial<WikiPage> | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    
+    // Form fields
+    const [title, setTitle] = useState('');
+    const [typeId, setTypeId] = useState('');
+    const [parentId, setParentId] = useState<string>('');
+    const [content, setContent] = useState('');
+    const [sections, setSections] = useState<PinSection[]>([]);
+    const [isVisible, setIsVisible] = useState(true);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (pinTypes.length > 0 && !typeId) {
+            setTypeId(pinTypes[0].id);
+        }
+    }, [pinTypes]);
+
+    const resetForm = () => {
+        setEditingPage(null); setIsEditing(false);
+        setTitle(''); setTypeId(pinTypes[0]?.id || ''); setParentId('');
+        setContent(''); setSections([]); setIsVisible(true);
+    };
+
+    const handleEdit = (p: WikiPage) => {
+        setEditingPage(p); setIsEditing(true);
+        setTitle(p.title || ''); setTypeId(p.type_id || ''); setParentId(p.parent_id || '');
+        setContent(p.content || ''); setSections(p.sections || []); setIsVisible(p.is_visible ?? true);
+    };
+
+    useEffect(() => {
+        if (initialEditItem) {
+            handleEdit(initialEditItem);
+        }
+    }, [initialEditItem]);
+
+    const updateSection = (id: string, updates: Partial<PinSection>) => {
+        setSections(sections.map(s => s.id === id ? { ...s, ...updates } : s));
+    };
+
+    const removeSection = (id: string) => {
+        setSections(sections.filter(s => s.id !== id));
+    };
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user) {
+            console.error("Cannot save: No user session found");
+            return;
+        }
+        
+        if (!title.trim()) {
+            setError({ message: "Validation Error", details: "Page title is required" });
+            return;
+        }
+
+        setLoading(true);
+        console.log("Saving wiki page...", { isEditing, title, typeId });
+
+        const payload: any = {
+            title: title.trim(),
+            type_id: typeId || null,
+            parent_id: parentId || null,
+            content: content || '',
+            sections: sections || [],
+            is_visible: isVisible,
+        };
+
+        if (!isEditing) {
+            payload.created_by = user.id;
+        }
+
+        try {
+            let res;
+            if (isEditing && editingPage?.id) {
+                res = await supabase.from('wiki_pages').update(payload).eq('id', editingPage.id).select().single();
+            } else {
+                res = await supabase.from('wiki_pages').insert(payload).select().single();
+            }
+
+            console.log("Wiki Page Save Response:", res);
+
+            if (res.error) {
+                console.error("Error saving wiki page:", res.error);
+                setError({ message: "Error saving wiki page", details: res.error });
+            } else {
+                const data = res.data;
+                if (data) {
+                    // Manually attach pin_types from local state to match WikiPage type
+                    const fullData = {
+                        ...data,
+                        pin_types: pinTypes.find(t => t.id === data.type_id) || null
+                    };
+                    updateLocalWikiPage(fullData as WikiPage);
+                    resetForm();
+                }
+            }
+        } catch (err: any) {
+            console.error("Exception saving wiki page:", err);
+            setError({ message: "Error saving wiki page", details: err });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        setLoading(true);
+        const { error } = await supabase.from('wiki_pages').delete().eq('id', id);
+        if (!error) {
+            removeLocalItem('wikipage', id);
+            resetForm();
+        } else {
+            setError({ message: "Error deleting wiki page", details: error });
+        }
+        setLoading(false);
+    };
+
+    const addSection = (type: PinSectionType) => {
+        const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11);
+        setSections([...sections, {
+            id,
+            type,
+            title: type.charAt(0).toUpperCase() + type.slice(1),
+            content: '',
+            list_items: type === 'list' ? [] : undefined,
+            stats: type === 'statblock' ? [] : undefined,
+            items: type === 'inventory' ? [] : undefined,
+            image_url: type === 'image' ? '' : undefined
+        }]);
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Wiki Manager" maxWidthClass="max-w-6xl">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+                <div className="md:col-span-1 border-r border-white/5 pr-6 space-y-6">
+                    <button onClick={resetForm} className="w-full flex items-center justify-center space-x-3 bg-white/5 hover:bg-white/10 text-white font-bold py-4 px-6 rounded-2xl transition-all border border-white/5 shadow-lg group">
+                        <Icon name="plus" className="h-5 w-5 text-dnd-gold group-hover:rotate-90 transition-transform" />
+                        <span className="text-xs uppercase tracking-widest">New Page</span>
+                    </button>
+                    <div className="space-y-2 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
+                        {wikiPages.map(p => (
+                            <div key={p.id} className="group flex items-center justify-between p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all cursor-pointer" onClick={() => handleEdit(p)}>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xl">{p.pin_types?.emoji || '📄'}</span>
+                                    <div className="text-left">
+                                        <div className="text-sm text-white font-bold tracking-tight">{p.title}</div>
+                                        <div className="text-[10px] text-dnd-gold/60 uppercase tracking-widest font-bold">{p.pin_types?.name}</div>
+                                    </div>
+                                </div>
+                                <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="p-2 text-dnd-text/20 hover:text-dnd-red transition-colors opacity-0 group-hover:opacity-100"><Icon name="trash" className="w-4 h-4"/></button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="md:col-span-3">
+                    <h3 className="text-2xl font-serif text-white font-bold mb-8 border-b border-white/5 pb-4">{isEditing ? 'Edit Page' : 'Create Page'}</h3>
+                    <form onSubmit={handleSave} className="space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-3">
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Page Title</label>
+                                <input 
+                                    type="text" 
+                                    value={title} 
+                                    onChange={e => setTitle(e.target.value)} 
+                                    required 
+                                    className="w-full rounded-2xl border border-white/5 bg-black/20 px-5 py-4 text-white font-bold focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner" 
+                                />
+                            </div>
+                            <div className="space-y-3">
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Page Type</label>
+                                <select 
+                                    value={typeId} 
+                                    onChange={e => setTypeId(e.target.value)} 
+                                    className="w-full rounded-2xl border border-white/5 bg-black/20 px-4 py-4 text-dnd-text/60 focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner font-bold"
+                                >
+                                    {pinTypes.map(pt => <option key={pt.id} value={pt.id}>{pt.emoji} {pt.name}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-3">
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Parent Page (Nesting)</label>
+                                <select 
+                                    value={parentId} 
+                                    onChange={e => setParentId(e.target.value)} 
+                                    className="w-full rounded-2xl border border-white/5 bg-black/20 px-4 py-4 text-dnd-text/60 focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner font-bold"
+                                >
+                                    <option value="">(None - Top Level)</option>
+                                    {wikiPages.filter(p => p.id !== editingPage?.id).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex items-center pt-8">
+                                <label className={cn(
+                                    "flex items-center gap-3 cursor-pointer text-[10px] font-bold uppercase tracking-widest transition-all",
+                                    isVisible ? 'text-dnd-gold' : 'text-dnd-text/20'
+                                )}>
+                                    <div className={cn(
+                                        "w-6 h-6 rounded-lg border flex items-center justify-center transition-all",
+                                        isVisible ? 'bg-dnd-gold/20 border-dnd-gold' : 'bg-black/20 border-white/5'
+                                    )}>
+                                        {isVisible && <Icon name="check" className="w-4 h-4 text-dnd-gold" />}
+                                    </div>
+                                    <input type="checkbox" checked={isVisible} onChange={e => setIsVisible(e.target.checked)} className="hidden" />
+                                    Visible to Players
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Content</label>
+                            <textarea 
+                                value={content} 
+                                onChange={e => setContent(e.target.value)} 
+                                rows={6} 
+                                className="w-full rounded-2xl border border-white/5 bg-black/20 px-5 py-4 text-sm text-dnd-text/60 focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner custom-scrollbar"
+                                placeholder="Write the content for this page..."
+                            />
+                        </div>
+
+                        {/* Sections Editor */}
+                        <div className="space-y-6 pt-8 border-t border-white/5">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Sections</h3>
+                                <div className="flex gap-2">
+                                    {(['text', 'image', 'list', 'statblock', 'secret'] as PinSectionType[]).map(type => (
+                                        <button 
+                                            key={type} 
+                                            type="button" 
+                                            onClick={() => addSection(type)} 
+                                            className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] text-dnd-text/60 font-bold uppercase tracking-widest border border-white/5 transition-all"
+                                        >
+                                            + {type}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                {sections.map((section, idx) => (
+                                    <div key={section.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 relative group">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => removeSection(section.id)} 
+                                            className="absolute top-2 right-2 p-1 text-dnd-text/20 hover:text-dnd-red transition-colors opacity-0 group-hover:opacity-100"
+                                        >
+                                            <Icon name="close" className="w-4 h-4"/>
+                                        </button>
+                                        <div className="flex gap-4 mb-4">
+                                            <div className="text-[10px] font-bold uppercase tracking-widest text-dnd-gold/60">{section.type}</div>
+                                            <input 
+                                                type="text" 
+                                                value={section.title} 
+                                                onChange={e => updateSection(section.id, {title: e.target.value})} 
+                                                className="bg-transparent border-b border-white/5 text-white font-bold text-sm focus:outline-none focus:border-dnd-gold/50 w-full" 
+                                                placeholder="Section Title"
+                                            />
+                                        </div>
+                                        {section.type === 'text' && (
+                                            <textarea 
+                                                value={section.content} 
+                                                onChange={e => updateSection(section.id, {content: e.target.value})} 
+                                                rows={3} 
+                                                className="w-full bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all custom-scrollbar" 
+                                                placeholder="Enter content here..."
+                                            />
+                                        )}
+                                        {section.type === 'secret' && (
+                                            <textarea 
+                                                value={section.content} 
+                                                onChange={e => updateSection(section.id, {content: e.target.value})} 
+                                                rows={3} 
+                                                className="w-full bg-dnd-red/5 rounded-xl p-3 text-xs text-dnd-red/60 border border-dnd-red/20 focus:outline-none focus:border-dnd-red/40 transition-all font-mono custom-scrollbar" 
+                                                placeholder="Enter secret content here..."
+                                            />
+                                        )}
+                                        {section.type === 'image' && (
+                                            <input 
+                                                type="text" 
+                                                value={section.image_url} 
+                                                onChange={e => updateSection(section.id, {image_url: e.target.value})} 
+                                                className="w-full bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all" 
+                                                placeholder="Image URL..."
+                                            />
+                                        )}
+                                        {section.type === 'list' && (
+                                            <div className="space-y-3">
+                                                <div className="flex gap-2">
+                                                    <input 
+                                                        type="text" 
+                                                        id={`new-list-item-${section.id}`}
+                                                        className="flex-1 bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all" 
+                                                        placeholder="Add item..."
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                const val = (e.target as HTMLInputElement).value;
+                                                                if (val) {
+                                                                    updateSection(section.id, {list_items: [...(section.list_items || []), val]});
+                                                                    (e.target as HTMLInputElement).value = '';
+                                                                }
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {section.list_items?.map((item, i) => (
+                                                        <div key={i} className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5 group/item">
+                                                            <span className="text-xs text-dnd-text/60">{item}</span>
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => updateSection(section.id, {list_items: section.list_items?.filter((_, j) => i !== j)})}
+                                                                className="text-dnd-text/20 hover:text-dnd-red transition-colors"
+                                                            >
+                                                                <Icon name="close" className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {section.type === 'statblock' && (
+                                            <div className="space-y-3">
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <input type="text" id={`stat-label-${section.id}`} placeholder="Label" className="bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50" />
+                                                    <input type="text" id={`stat-value-${section.id}`} placeholder="Value" className="bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50" />
+                                                </div>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const label = (document.getElementById(`stat-label-${section.id}`) as HTMLInputElement).value;
+                                                        const value = (document.getElementById(`stat-value-${section.id}`) as HTMLInputElement).value;
+                                                        if (label && value) {
+                                                            updateSection(section.id, {stats: [...(section.stats || []), {label, value}]});
+                                                            (document.getElementById(`stat-label-${section.id}`) as HTMLInputElement).value = '';
+                                                            (document.getElementById(`stat-value-${section.id}`) as HTMLInputElement).value = '';
+                                                        }
+                                                    }}
+                                                    className="w-full py-2 bg-dnd-gold/10 hover:bg-dnd-gold/20 text-dnd-gold rounded-xl text-[10px] font-bold uppercase tracking-widest border border-dnd-gold/20 transition-all"
+                                                >
+                                                    Add Stat
+                                                </button>
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                    {section.stats?.map((stat, i) => (
+                                                        <div key={i} className="bg-black/20 p-3 rounded-xl border border-white/5 relative group/stat">
+                                                            <div className="text-[8px] uppercase tracking-widest text-dnd-gold/60 font-bold">{stat.label}</div>
+                                                            <div className="text-sm text-white font-bold">{stat.value}</div>
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => updateSection(section.id, {stats: section.stats?.filter((_, j) => i !== j)})}
+                                                                className="absolute top-1 right-1 text-dnd-text/20 hover:text-dnd-red opacity-0 group-hover/stat:opacity-100 transition-all"
+                                                            >
+                                                                <Icon name="close" className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-between items-center pt-8 border-t border-white/5">
+                             {isEditing && (
+                                 <button 
+                                    type="button" 
+                                    onClick={() => handleDelete(editingPage!.id!)} 
+                                    className="flex items-center gap-2 text-dnd-red hover:brightness-125 transition-all font-bold uppercase tracking-widest text-xs"
+                                >
+                                    <Icon name="trash" className="w-4 h-4" />
+                                    Delete Page
+                                </button>
+                             )}
+                             <button type="submit" disabled={loading} className="bg-dnd-gold hover:brightness-110 text-white font-bold py-4 px-12 rounded-2xl shadow-xl shadow-dnd-gold/20 transition-all disabled:opacity-50 uppercase tracking-widest text-xs ml-auto">
+                                {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Save Page'}
+                             </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+

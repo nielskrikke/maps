@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Pin, Comment, PinSection, Character } from '../types';
 import { useAuth } from '../App';
 import { useAppContext } from '../contexts/AppContext';
@@ -13,15 +13,18 @@ interface PinDetailsProps {
     onEdit: (pin: Pin) => void;
     mapId: string | undefined;
     onOpenWiki?: (characterId: string) => void;
+    onOpenWikiPage?: (pageId: string) => void;
 }
 
-const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, onOpenWiki }) => {
+const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, onOpenWiki, onOpenWikiPage }) => {
     const { user } = useAuth();
-    const { isPlayerView, maps, characters, updateLocalCharacter, setError } = useAppContext();
+    const { isPlayerView, maps, characters, wikiPages, updateLocalCharacter, setError } = useAppContext();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [isPrivateComment, setIsPrivateComment] = useState(false);
     
+    const sideRef = useRef<HTMLElement>(null);
+
     // For expanding inventory items to show description
     const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
@@ -31,6 +34,31 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
 
     // Derived: Characters present at this pin
     const presentCharacters = pin ? characters.filter(c => c.current_pin_id === pin.id) : [];
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (sideRef.current && !sideRef.current.contains(event.target as Node)) {
+                // Check if the click was on a pin - if so, let the pin's own click handler handle it
+                const target = event.target as HTMLElement;
+                const isPinClick = target.closest('.map-pin');
+                
+                if (!isPinClick) {
+                    onClose();
+                }
+            }
+        };
+
+        if (pin) {
+            // Use a small timeout to avoid the initial click that opens the pin from immediately closing it
+            const timer = setTimeout(() => {
+                document.addEventListener('mousedown', handleClickOutside);
+            }, 10);
+            return () => {
+                clearTimeout(timer);
+                document.removeEventListener('mousedown', handleClickOutside);
+            };
+        }
+    }, [pin, onClose]);
 
     useEffect(() => {
         const fetchComments = async () => {
@@ -241,6 +269,7 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
 
     return (
         <aside 
+            ref={sideRef}
             className="absolute top-0 right-0 h-full w-full max-w-sm bg-dnd-panel/95 backdrop-blur-md border-l border-white/5 p-5 shadow-2xl z-30 overflow-hidden"
         >
             {/* Background Accent */}
@@ -278,7 +307,7 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                                 <div 
                                     className="mb-4 bg-black/20 rounded-xl border border-dnd-gold/20 p-3 overflow-hidden"
                                 >
-                                    <input autoFocus type="text" placeholder="Search the archives..." className="w-full bg-transparent text-sm border-b border-white/5 pb-2 mb-3 focus:outline-none focus:border-dnd-gold/50 placeholder-dnd-text/20" />
+                                    <input autoFocus type="text" placeholder="Search for characters..." className="w-full bg-transparent text-sm border-b border-white/5 pb-2 mb-3 focus:outline-none focus:border-dnd-gold/50 placeholder-dnd-text/20" />
                                     <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
                                         {characters.filter(c => c.current_pin_id !== pin.id).map(c => (
                                             <button 
@@ -413,10 +442,23 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                         </div>
                     )}
 
+                    {pin.wiki_page_id && onOpenWikiPage && (
+                        <div 
+                            onClick={() => onOpenWikiPage(pin.wiki_page_id!)}
+                            className="glass-panel p-5 rounded-2xl group cursor-pointer hover:bg-white/5 transition-all border border-dnd-gold/20"
+                        >
+                             <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 mb-2">Linked Wiki Page</h3>
+                            <div className="flex items-center gap-3 text-dnd-gold">
+                                <Icon name="book" className="w-5 h-5"/>
+                                <span className="font-serif text-xl font-bold">{wikiPages.find(p => p.id === pin.wiki_page_id)?.title || 'View Wiki Page'}</span>
+                            </div>
+                        </div>
+                    )}
+
                     {pin.data.sections?.map((section, index) => renderSection(section, index))}
                     
                     <div className="space-y-6 pt-8 border-t border-white/5">
-                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Chronicles & Notes</h3>
+                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Wiki & Notes</h3>
                         <div className="space-y-4">
                             {comments.map(comment => (
                                 <div key={comment.id} className="text-sm bg-white/5 p-4 rounded-2xl border border-white/5 shadow-xl">
@@ -434,7 +476,7 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                             <textarea
                                 value={newComment}
                                 onChange={(e) => setNewComment(e.target.value)}
-                                placeholder="Add to the archives..."
+                                placeholder="Add a note..."
                                 className="w-full rounded-2xl border border-white/5 bg-black/20 p-4 text-sm text-white focus:border-dnd-gold/50 focus:outline-none placeholder-dnd-text/20 transition-all"
                                 rows={3}
                             ></textarea>

@@ -1,11 +1,12 @@
 import React, { createContext, useContext } from 'react';
-import { Map as MapType, Pin, PinType, Character } from '../types';
+import { Map as MapType, Pin, PinType, Character, WikiPage } from '../types';
 
 export type AppContextType = {
     maps: MapType[];
     pinTypes: PinType[];
     pins: Pin[];
     characters: Character[];
+    wikiPages: WikiPage[];
     isPlayerView: boolean;
     error: { message: string; details?: any } | null;
     setError: (error: { message: string; details?: any } | null) => void;
@@ -15,7 +16,8 @@ export type AppContextType = {
     updateLocalMap: (map: MapType) => void;
     updateLocalCharacter: (char: Character) => void;
     updateLocalPinType: (pt: PinType) => void;
-    removeLocalItem: (type: 'map'|'pin'|'character'|'pintype', id: string) => void;
+    updateLocalWikiPage: (page: WikiPage) => void;
+    removeLocalItem: (type: 'map'|'pin'|'character'|'pintype'|'wikipage', id: string) => void;
 };
 
 export const AppContext = createContext<AppContextType | null>(null);

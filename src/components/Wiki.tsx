@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { useAuth } from '../App';
-import { Map as MapType, Pin, Character, Comment } from '../types';
+import { Map as MapType, Pin, Character, Comment, WikiPage } from '../types';
 import { Icon } from './Icons';
 import { supabase } from '../services/supabase';
 import { cn } from '../lib/utils';
@@ -11,12 +11,28 @@ interface WikiProps {
     selectedMap: MapType | null;
     selectedPin: Pin | null;
     selectedCharacter: Character | null;
+    selectedWikiPage: WikiPage | null;
     onSelectMap: (map: MapType) => void;
     onLocatePin: (pin: Pin) => void;
+    onSelectWikiPage: (page: WikiPage) => void;
+    onEditWikiPage?: (page: WikiPage) => void;
+    onEditCharacter?: (char: Character) => void;
+    onEditPin?: (pin: Pin) => void;
 }
 
-const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter, onSelectMap, onLocatePin }) => {
-    const { maps, pins, pinTypes, characters, isPlayerView } = useAppContext();
+const Wiki: React.FC<WikiProps> = ({ 
+    selectedMap, 
+    selectedPin, 
+    selectedCharacter, 
+    selectedWikiPage, 
+    onSelectMap, 
+    onLocatePin, 
+    onSelectWikiPage,
+    onEditWikiPage,
+    onEditCharacter,
+    onEditPin
+}) => {
+    const { maps, pins, pinTypes, characters, wikiPages, isPlayerView } = useAppContext();
     const { user } = useAuth();
     const isDM = user?.profile.role === 'DM';
     const canSeeSecrets = isDM && !isPlayerView;
@@ -112,7 +128,18 @@ const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter
                             {type?.emoji || '📍'}
                         </div>
                         <div>
-                            <h1 className="text-5xl font-serif font-bold text-white tracking-tight">{pin.title}</h1>
+                            <div className="flex items-center gap-4">
+                                <h1 className="text-5xl font-serif font-bold text-white tracking-tight">{pin.title}</h1>
+                                {isDM && !isPlayerView && onEditPin && (
+                                    <button 
+                                        onClick={() => onEditPin(pin)}
+                                        className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-dnd-gold transition-all border border-white/5 shadow-lg"
+                                        title="Edit Pin"
+                                    >
+                                        <Icon name="pencil" className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
                             <div className="flex items-center gap-3 mt-2">
                                 <span className="bg-white/5 px-3 py-1 rounded-lg text-[10px] text-dnd-gold border border-white/5 uppercase tracking-[0.2em] font-bold">{type?.name || 'Unknown'}</span>
                                 {pinMap && <span className="text-dnd-text/40 text-xs font-bold uppercase tracking-widest flex items-center gap-2"><Icon name="map" className="w-3 h-3"/> {pinMap.name}</span>}
@@ -243,7 +270,18 @@ const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter
                         )}
                     </div>
                     <div className="flex-1 text-center md:text-left pt-2">
-                        <h1 className="text-3xl font-serif font-bold text-white mb-3 tracking-tight">{char.name}</h1>
+                        <div className="flex items-center justify-center md:justify-start gap-4 mb-3">
+                            <h1 className="text-3xl font-serif font-bold text-white tracking-tight">{char.name}</h1>
+                            {isDM && !isPlayerView && onEditCharacter && (
+                                <button 
+                                    onClick={() => onEditCharacter(char)}
+                                    className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-dnd-gold transition-all border border-white/5 shadow-lg"
+                                    title="Edit Character"
+                                >
+                                    <Icon name="pencil" className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-[9px] font-bold uppercase tracking-[0.2em] mb-4">
                             <span className="bg-white/5 px-3 py-1 rounded-full border border-white/5 text-dnd-text/60">{char.role_details?.race}</span>
                             
@@ -292,9 +330,9 @@ const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter
 
                         {/* Comments Section */}
                         <div className="bg-white/5 p-8 rounded-2xl border border-white/5 shadow-xl">
-                            <h3 className="font-serif text-2xl text-white font-bold mb-6 border-b border-white/5 pb-4">Chronicles & Notes</h3>
+                            <h3 className="font-serif text-2xl text-white font-bold mb-6 border-b border-white/5 pb-4">Notes</h3>
                             <div className="space-y-4 mb-8">
-                                {characterComments.length === 0 && <p className="text-dnd-text/20 italic text-sm py-4">The archives are empty.</p>}
+                                {characterComments.length === 0 && <p className="text-dnd-text/20 italic text-sm py-4">No notes found.</p>}
                                 {characterComments.map(comment => (
                                     <div key={comment.id} className="bg-black/20 p-5 rounded-2xl border border-white/5 shadow-lg">
                                         <div className="flex justify-between items-center mb-3">
@@ -309,7 +347,7 @@ const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter
                                 <textarea 
                                     value={newComment} 
                                     onChange={e => setNewComment(e.target.value)} 
-                                    placeholder="Add to the chronicles..." 
+                                    placeholder="Add a note..." 
                                     className="w-full bg-black/20 border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-dnd-gold/50 transition-all placeholder-dnd-text/20"
                                     rows={3}
                                 />
@@ -348,6 +386,145 @@ const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter
         );
     };
 
+    const renderWikiPageContent = (page: WikiPage) => {
+        const type = pinTypes.find(t => t.id === page.type_id);
+        const subPages = wikiPages.filter(p => p.parent_id === page.id);
+        const linkedPins = pins.filter(p => p.wiki_page_id === page.id);
+
+        return (
+            <div className="space-y-10 max-w-5xl mx-auto pb-24">
+                {/* Header */}
+                <div className="border-b border-white/5 pb-8">
+                    <div className="flex items-center gap-6 mb-6">
+                        <div className="flex items-center justify-center w-20 h-20 rounded-2xl shadow-2xl text-4xl ring-2 ring-white/10" style={{ backgroundColor: type?.color || '#555' }}>
+                            {type?.emoji || '📄'}
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-4">
+                                <h1 className="text-5xl font-serif font-bold text-white tracking-tight">{page.title}</h1>
+                                {isDM && !isPlayerView && onEditWikiPage && (
+                                    <button 
+                                        onClick={() => onEditWikiPage(page)}
+                                        className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-dnd-gold transition-all border border-white/5 shadow-lg"
+                                        title="Edit Wiki Page"
+                                    >
+                                        <Icon name="pencil" className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-2">
+                                <span className="bg-white/5 px-3 py-1 rounded-lg text-[10px] text-dnd-gold border border-white/5 uppercase tracking-[0.2em] font-bold">{type?.name || 'Page'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {page.content && (
+                         <div className="prose prose-invert max-w-none text-dnd-text/80 text-xl leading-relaxed glass-panel p-8 rounded-2xl border border-white/5 shadow-2xl font-medium">
+                            {page.content}
+                         </div>
+                    )}
+                </div>
+
+                {/* Sub-pages */}
+                {subPages.length > 0 && (
+                    <div className="mb-10">
+                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 mb-5 flex items-center gap-2">
+                            <Icon name="book" className="w-4 h-4"/> Nested Pages
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {subPages.map(sp => (
+                                <button 
+                                    key={sp.id} 
+                                    onClick={() => onSelectWikiPage(sp)}
+                                    className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 hover:border-dnd-gold/30 transition-all group text-left"
+                                >
+                                    <span className="text-2xl">{pinTypes.find(t => t.id === sp.type_id)?.emoji || '📄'}</span>
+                                    <div>
+                                        <div className="font-bold text-white group-hover:text-dnd-gold transition-colors">{sp.title}</div>
+                                        <div className="text-[10px] text-dnd-text/40 uppercase tracking-widest font-bold">{pinTypes.find(t => t.id === sp.type_id)?.name}</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Linked Pins */}
+                {linkedPins.length > 0 && (
+                    <div className="mb-10">
+                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 mb-5 flex items-center gap-2">
+                            <Icon name="map" className="w-4 h-4"/> Manifestations on Map
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {linkedPins.map(pin => {
+                                const pMap = maps.find(m => m.id === pin.map_id);
+                                return (
+                                    <button 
+                                        key={pin.id} 
+                                        onClick={() => onLocatePin(pin)}
+                                        className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 hover:border-dnd-gold/30 transition-all group text-left"
+                                    >
+                                        <span className="text-2xl">{pinTypes.find(t => t.id === pin.pin_type_id)?.emoji || '📍'}</span>
+                                        <div>
+                                            <div className="font-bold text-white group-hover:text-dnd-gold transition-colors">{pin.title}</div>
+                                            <div className="text-[10px] text-dnd-text/40 uppercase tracking-widest font-bold">{pMap?.name || 'Unknown Map'}</div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Sections */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {page.sections?.map((section, idx) => {
+                        if (section.type === 'secret' && !canSeeSecrets) return null;
+                        const isFullWidth = section.type === 'text' || section.type === 'list' || section.type === 'inventory';
+                        
+                        return (
+                            <div key={idx} className={cn(
+                                "bg-white/5 rounded-2xl border border-white/5 overflow-hidden shadow-xl",
+                                isFullWidth ? 'md:col-span-2' : '',
+                                section.type === 'secret' ? 'border-dnd-red/20 bg-dnd-red/5' : ''
+                            )}>
+                                <div className={cn(
+                                    "px-6 py-4 border-b border-white/5 flex items-center justify-between",
+                                    section.type === 'secret' ? 'bg-dnd-red/10' : 'bg-white/5'
+                                )}>
+                                    <h3 className={cn(
+                                        "font-serif text-xl font-bold",
+                                        section.type === 'secret' ? 'text-dnd-red' : 'text-white'
+                                    )}>
+                                        {section.title}
+                                    </h3>
+                                    <span className="text-[10px] uppercase text-dnd-text/20 font-bold tracking-[0.2em]">{section.type}</span>
+                                </div>
+                                <div className="p-6">
+                                    {section.type === 'text' && <p className="whitespace-pre-wrap text-dnd-text/60 leading-relaxed">{section.content}</p>}
+                                    {section.type === 'secret' && <p className="whitespace-pre-wrap text-dnd-red/80 leading-relaxed font-mono text-sm">{section.content}</p>}
+                                    {section.type === 'list' && (
+                                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {section.list_items?.map((item, i) => (
+                                                <li key={i} className="flex items-start gap-3 text-dnd-text/80 bg-black/20 p-4 rounded-xl border border-white/5">
+                                                    <span className="text-dnd-gold mt-1">✦</span>
+                                                    <span className="leading-relaxed">{item}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    {section.type === 'image' && section.image_url && (
+                                        <img src={section.image_url} alt={section.title} className="w-full h-auto rounded-xl shadow-2xl border border-white/10" referrerPolicy="no-referrer" />
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
     // --- Main Layout ---
     return (
         <div className="flex h-full w-full bg-dnd-dark text-dnd-text overflow-hidden">
@@ -365,6 +542,10 @@ const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter
                     ) : selectedCharacter ? (
                         <React.Fragment key={`char-${selectedCharacter.id}`}>
                             {renderCharacterContent(selectedCharacter)}
+                        </React.Fragment>
+                    ) : selectedWikiPage ? (
+                        <React.Fragment key={`page-${selectedWikiPage.id}`}>
+                            {renderWikiPageContent(selectedWikiPage)}
                         </React.Fragment>
                     ) : selectedMap ? (
                         <div 
@@ -442,17 +623,52 @@ const Wiki: React.FC<WikiProps> = ({ selectedMap, selectedPin, selectedCharacter
                                         </button>
                                     );
                                 })}
-                                {activeMapPins.length === 0 && <p className="col-span-full text-dnd-text/20 italic text-center py-16 font-medium">No locations have been chronicled in this map.</p>}
+                                {activeMapPins.length === 0 && <p className="col-span-full text-dnd-text/20 italic text-center py-16 font-medium">No locations have been recorded in this map.</p>}
                             </div>
                         </div>
                     ) : (
-                        <div 
-                            className="h-full flex flex-col items-center justify-center text-dnd-text/40 space-y-8"
-                        >
-                            <Icon name="book" className="w-32 h-32 text-dnd-gold/20"/>
-                            <div className="text-center">
-                                <h2 className="text-4xl font-serif text-white/40 font-bold tracking-tight">The Eternal Archives</h2>
-                                <p className="mt-4 text-lg font-medium">Select a location or character from the sidebar to begin reading.</p>
+                        <div className="max-w-6xl mx-auto space-y-12">
+                            <div className="text-center py-12 border-b border-white/5">
+                                <Icon name="book" className="w-24 h-24 text-dnd-gold/20 mx-auto mb-6"/>
+                                <h2 className="text-4xl font-serif font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-[#e5c983] to-[#8a7238] drop-shadow-2xl uppercase">
+                                    WIKI
+                                </h2>
+                                <p className="mt-4 text-dnd-text/40 text-lg max-w-2xl mx-auto font-medium">Explore the collective knowledge of your world. Select a page from the sidebar or browse the top-level entries below.</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {wikiPages.filter(p => !p.parent_id).map(page => {
+                                    const type = pinTypes.find(t => t.id === page.type_id);
+                                    return (
+                                        <button 
+                                            key={page.id}
+                                            onClick={() => onSelectWikiPage(page)}
+                                            className="bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 p-6 rounded-2xl text-left transition-all group flex flex-col gap-4 shadow-xl backdrop-blur-sm"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-2xl ring-2 ring-white/5 group-hover:ring-dnd-gold transition-all" style={{ backgroundColor: type?.color || '#555' }}>
+                                                    {type?.emoji || '📄'}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h3 className="font-bold text-white truncate group-hover:text-dnd-gold transition-colors text-lg">{page.title}</h3>
+                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 mt-0.5">{type?.name || 'Page'}</p>
+                                                </div>
+                                            </div>
+                                            {page.content && (
+                                                <p className="text-sm text-dnd-text/40 line-clamp-3 leading-relaxed font-medium">{page.content}</p>
+                                            )}
+                                            <div className="mt-auto pt-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-dnd-gold/60">
+                                                <span>{wikiPages.filter(p => p.parent_id === page.id).length} Sub-pages</span>
+                                                <Icon name="chevron-right" className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                                {wikiPages.filter(p => !p.parent_id).length === 0 && (
+                                    <div className="col-span-full py-20 text-center text-dnd-text/20 italic font-medium">
+                                        No wiki pages have been created yet.
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

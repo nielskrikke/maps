@@ -283,7 +283,7 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
                             onMouseEnter={() => setHoveredPinId(pin.id)}
                             onMouseLeave={() => setHoveredPinId(null)}
                             className={cn(
-                                "absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-shadow focus:outline-none shadow-2xl",
+                                "map-pin absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full transition-shadow focus:outline-none shadow-2xl",
                                 isHighlighted ? 'ring-4 ring-dnd-gold ring-offset-2 ring-offset-black z-50' : 'brightness-100 hover:brightness-110 focus:ring-2 focus:ring-white hover:z-50',
                                 canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
                             )}

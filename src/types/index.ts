@@ -71,6 +71,7 @@ export type Pin = {
   id: string;
   map_id: string;
   pin_type_id: string;
+  wiki_page_id?: string | null; // Link to a wiki page
   x_coord: number;
   y_coord: number;
   title: string;
@@ -80,6 +81,19 @@ export type Pin = {
   created_by: string;
   created_at: string;
   pin_types: PinType | null; // For joined data
+};
+
+export type WikiPage = {
+  id: string;
+  title: string;
+  type_id: string;
+  parent_id: string | null;
+  content: string;
+  sections: PinSection[]; // Reuse PinSection for structured content
+  is_visible: boolean;
+  created_by: string;
+  created_at: string;
+  pin_types?: PinType | null; // Use PinType for joined data
 };
 
 export type CharacterRelationship = {
