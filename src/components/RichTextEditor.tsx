@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
+import Underline from '@tiptap/extension-underline';
 import { Icon } from './Icons';
 import { cn } from '../lib/utils';
 
@@ -69,6 +70,7 @@ const MenuBar = ({ editor, isSmall }: { editor: any, isSmall?: boolean }) => {
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, placeholder, isSmall, className }) => {
     const extensions = React.useMemo(() => [
         StarterKit.configure(),
+        Underline,
         Placeholder.configure({
             placeholder: placeholder || 'Write something...',
         }),
