@@ -18,6 +18,8 @@ export type AppContextType = {
     updateLocalPinType: (pt: PinType) => void;
     updateLocalWikiPage: (page: WikiPage) => void;
     removeLocalItem: (type: 'map'|'pin'|'character'|'pintype'|'wikipage', id: string) => void;
+    expandedWikiSection: 'wiki' | 'characters' | 'locations';
+    setExpandedWikiSection: (section: 'wiki' | 'characters' | 'locations') => void;
 };
 
 export const AppContext = createContext<AppContextType | null>(null);

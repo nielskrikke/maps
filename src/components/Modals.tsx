@@ -7,6 +7,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { useItems, ApiItem } from './ItemProvider';
 import { Map as MapType, Pin, PinData, PinType, PinSectionType, PinSection, InventoryItem, Character, CharacterRelationship, MapTypeEnum, UserProfile, WikiPage } from '../types';
 import { Icon } from './Icons';
+import { RichTextEditor } from './RichTextEditor';
 import MapViewer from './MapViewer';
 import { cn } from '../lib/utils';
 
@@ -1008,6 +1009,7 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
             sheet_url: sheetUrl,
             is_npc: isNpc,
             is_visible: isVisible,
+            character_json: editingChar?.character_json || null
         };
 
         if (!isEditing) {
@@ -1171,21 +1173,51 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-3">
                                 <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Backstory</label>
-                                <textarea 
-                                    value={backstory} 
-                                    onChange={e => setBackstory(e.target.value)} 
-                                    rows={6} 
-                                    className="w-full rounded-2xl border border-white/5 bg-black/20 px-5 py-4 text-sm text-dnd-text/60 focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner custom-scrollbar"
+                                <RichTextEditor 
+                                    content={backstory} 
+                                    onChange={setBackstory} 
+                                    className="w-full"
                                 />
                             </div>
                              <div className="space-y-3">
                                 <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-red/60">DM Notes</label>
-                                <textarea 
-                                    value={gmNotes} 
-                                    onChange={e => setGmNotes(e.target.value)} 
-                                    rows={6} 
-                                    className="w-full rounded-2xl border border-dnd-red/20 bg-dnd-red/5 px-5 py-4 text-sm text-dnd-text/60 focus:outline-none focus:border-dnd-red/50 transition-all shadow-inner custom-scrollbar"
+                                <RichTextEditor 
+                                    content={gmNotes} 
+                                    onChange={setGmNotes} 
+                                    className="w-full"
                                 />
+                            </div>
+                         </div>
+
+                         <div className="space-y-3">
+                            <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-red/60">Character JSON (DM Only)</label>
+                            <div className="flex items-center gap-4">
+                                <label className="cursor-pointer flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/5 px-4 py-2 rounded-xl transition-all text-xs font-bold text-dnd-text/60">
+                                    <Icon name="upload" className="w-4 h-4 text-dnd-gold" />
+                                    {editingChar?.character_json ? 'Replace JSON' : 'Upload JSON'}
+                                    <input 
+                                        type="file" 
+                                        accept=".json" 
+                                        className="hidden" 
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                const text = await file.text();
+                                                try {
+                                                    const json = JSON.parse(text);
+                                                    setEditingChar(prev => prev ? { ...prev, character_json: json } : { character_json: json });
+                                                } catch (err) {
+                                                    setError({ message: "Invalid JSON file", details: err });
+                                                }
+                                            }
+                                        }} 
+                                    />
+                                </label>
+                                {editingChar?.character_json && (
+                                    <span className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                                        <Icon name="check" className="w-3 h-3" /> JSON Attached
+                                    </span>
+                                )}
                             </div>
                          </div>
 
@@ -1239,11 +1271,12 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
 
     const addSection = (type: PinSectionType) => {
         const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11);
-        setSections([...sections, {
+        setSections(prev => [...prev, {
             id,
             type,
             title: type === 'secret' ? 'Secret Note' : type.charAt(0).toUpperCase() + type.slice(1),
             content: '',
+            is_visible: type !== 'secret' && type !== 'encounter',
             list_items: type === 'list' ? [] : undefined,
             stats: type === 'statblock' ? [] : undefined,
             items: type === 'inventory' ? [] : undefined,
@@ -1251,8 +1284,12 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
         }]);
     };
 
-    const updateSection = (id: string, updates: Partial<PinSection>) => {
-        setSections(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    const updateSection = (id: string, updater: Partial<PinSection> | ((s: PinSection) => Partial<PinSection>)) => {
+        setSections(prev => prev.map(s => {
+            if (s.id !== id) return s;
+            const updates = typeof updater === 'function' ? updater(s) : updater;
+            return { ...s, ...updates };
+        }));
     };
     
     const removeSection = (id: string) => {
@@ -1261,9 +1298,6 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
 
     // Inventory Helpers
     const addItemToSection = (sectionId: string, item: ApiItem) => {
-        const section = sections.find(s => s.id === sectionId);
-        if (!section || !section.items) return;
-        
         const newItem: InventoryItem = {
             id: crypto.randomUUID(),
             name: item.name,
@@ -1275,7 +1309,7 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
             category: item.equipment_category?.name
         };
         
-        updateSection(sectionId, { items: [...section.items, newItem] });
+        updateSection(sectionId, (s) => ({ items: [...(s.items || []), newItem] }));
     };
 
     const handleSaveLocal = async (e: React.FormEvent) => {
@@ -1311,6 +1345,7 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
             if (result?.error) {
                 console.error("Error saving pin:", result.error);
                 setError({ message: "Error saving sigil", details: result.error });
+                return; // Stop here if error
             }
 
             if (result?.data) {
@@ -1414,12 +1449,11 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
 
                 <div className="space-y-3">
                     <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Description</label>
-                    <textarea 
-                        value={description} 
-                        onChange={e => setDescription(e.target.value)} 
-                        rows={4} 
-                        className="w-full rounded-2xl border border-white/5 bg-black/20 px-5 py-4 text-sm text-dnd-text/60 focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner custom-scrollbar"
+                    <RichTextEditor 
+                        content={description} 
+                        onChange={setDescription} 
                         placeholder="Describe this location..."
+                        className="w-full"
                     />
                 </div>
                 
@@ -1428,7 +1462,7 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Sections</h3>
                         <div className="flex flex-wrap gap-2">
-                             {(['text', 'image', 'list', 'statblock', 'inventory', 'secret'] as PinSectionType[]).map(type => (
+                             {(['text', 'image', 'list', 'statblock', 'inventory', 'secret', 'encounter'] as PinSectionType[]).map(type => (
                                  <button 
                                     key={type} 
                                     type="button" 
@@ -1457,6 +1491,19 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                                     <div className="bg-dnd-gold/10 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest text-dnd-gold self-start border border-dnd-gold/20">
                                         {section.type}
                                     </div>
+                                    <label className={cn(
+                                        "flex items-center gap-2 cursor-pointer text-[10px] font-bold uppercase tracking-widest transition-all",
+                                        section.is_visible ? 'text-dnd-gold' : 'text-dnd-text/20'
+                                    )}>
+                                        <div className={cn(
+                                            "w-4 h-4 rounded border flex items-center justify-center transition-all",
+                                            section.is_visible ? 'bg-dnd-gold/20 border-dnd-gold' : 'bg-black/20 border-white/5'
+                                        )}>
+                                            {section.is_visible && <Icon name="check" className="w-3 h-3 text-dnd-gold" />}
+                                        </div>
+                                        <input type="checkbox" checked={section.is_visible ?? true} onChange={e => updateSection(section.id, {is_visible: e.target.checked})} className="hidden" />
+                                        Visible
+                                    </label>
                                     <input 
                                         type="text" 
                                         value={section.title} 
@@ -1467,23 +1514,55 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                                 </div>
 
                                 {section.type === 'text' && (
-                                    <textarea 
-                                        value={section.content} 
-                                        onChange={e => updateSection(section.id, {content: e.target.value})} 
-                                        rows={3} 
-                                        className="w-full bg-black/20 rounded-2xl p-4 text-sm text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all custom-scrollbar" 
+                                    <RichTextEditor 
+                                        content={section.content || ''} 
+                                        onChange={val => updateSection(section.id, {content: val})} 
                                         placeholder="Enter content here..."
+                                        className="w-full"
                                     />
                                 )}
                                 
                                 {section.type === 'secret' && (
-                                    <textarea 
-                                        value={section.content} 
-                                        onChange={e => updateSection(section.id, {content: e.target.value})} 
-                                        rows={3} 
-                                        className="w-full bg-dnd-red/5 rounded-2xl p-4 text-sm text-dnd-text/60 border border-dnd-red/20 focus:outline-none focus:border-dnd-red/50 transition-all custom-scrollbar" 
+                                    <RichTextEditor 
+                                        content={section.content || ''} 
+                                        onChange={val => updateSection(section.id, {content: val})} 
                                         placeholder="Whispers for the Weaver's ears only..."
+                                        className="w-full"
                                     />
+                                )}
+
+                                {section.type === 'encounter' && (
+                                    <div className="space-y-4">
+                                        <RichTextEditor 
+                                            content={section.content || ''} 
+                                            onChange={val => updateSection(section.id, {content: val})} 
+                                            placeholder="Encounter description..."
+                                            className="w-full"
+                                        />
+                                        <div className="flex items-center gap-4">
+                                            <label className="cursor-pointer flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/5 px-4 py-2 rounded-xl transition-all text-xs font-bold text-dnd-text/60">
+                                                <Icon name="upload" className="w-4 h-4 text-dnd-gold" />
+                                                {section.json_data ? 'Replace JSON' : 'Upload JSON'}
+                                                <input 
+                                                    type="file" 
+                                                    accept=".json" 
+                                                    className="hidden" 
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            const text = await file.text();
+                                                            updateSection(section.id, { json_data: text });
+                                                        }
+                                                    }} 
+                                                />
+                                            </label>
+                                            {section.json_data && (
+                                                <span className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                    <Icon name="check" className="w-3 h-3" /> JSON Attached
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
                                 )}
 
                                 {section.type === 'list' && (
@@ -1714,12 +1793,16 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
         }
     }, [initialEditItem]);
 
-    const updateSection = (id: string, updates: Partial<PinSection>) => {
-        setSections(sections.map(s => s.id === id ? { ...s, ...updates } : s));
+    const updateSection = (id: string, updater: Partial<PinSection> | ((s: PinSection) => Partial<PinSection>)) => {
+        setSections(prev => prev.map(s => {
+            if (s.id !== id) return s;
+            const updates = typeof updater === 'function' ? updater(s) : updater;
+            return { ...s, ...updates };
+        }));
     };
 
     const removeSection = (id: string) => {
-        setSections(sections.filter(s => s.id !== id));
+        setSections(prev => prev.filter(s => s.id !== id));
     };
 
     const handleSave = async (e: React.FormEvent) => {
@@ -1797,11 +1880,12 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
 
     const addSection = (type: PinSectionType) => {
         const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11);
-        setSections([...sections, {
+        setSections(prev => [...prev, {
             id,
             type,
             title: type.charAt(0).toUpperCase() + type.slice(1),
             content: '',
+            is_visible: type !== 'secret' && type !== 'encounter',
             list_items: type === 'list' ? [] : undefined,
             stats: type === 'statblock' ? [] : undefined,
             items: type === 'inventory' ? [] : undefined,
@@ -1890,12 +1974,11 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
 
                         <div className="space-y-3">
                             <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Content</label>
-                            <textarea 
-                                value={content} 
-                                onChange={e => setContent(e.target.value)} 
-                                rows={6} 
-                                className="w-full rounded-2xl border border-white/5 bg-black/20 px-5 py-4 text-sm text-dnd-text/60 focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner custom-scrollbar"
+                            <RichTextEditor 
+                                content={content} 
+                                onChange={setContent} 
                                 placeholder="Write the content for this page..."
+                                className="w-full"
                             />
                         </div>
 
@@ -1904,7 +1987,7 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                             <div className="flex justify-between items-center">
                                 <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Sections</h3>
                                 <div className="flex gap-2">
-                                    {(['text', 'image', 'list', 'statblock', 'secret'] as PinSectionType[]).map(type => (
+                                    {(['text', 'image', 'list', 'statblock', 'secret', 'encounter'] as PinSectionType[]).map(type => (
                                         <button 
                                             key={type} 
                                             type="button" 
@@ -1929,6 +2012,19 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                         </button>
                                         <div className="flex gap-4 mb-4">
                                             <div className="text-[10px] font-bold uppercase tracking-widest text-dnd-gold/60">{section.type}</div>
+                                            <label className={cn(
+                                                "flex items-center gap-2 cursor-pointer text-[10px] font-bold uppercase tracking-widest transition-all",
+                                                section.is_visible ? 'text-dnd-gold' : 'text-dnd-text/20'
+                                            )}>
+                                                <div className={cn(
+                                                    "w-4 h-4 rounded border flex items-center justify-center transition-all",
+                                                    section.is_visible ? 'bg-dnd-gold/20 border-dnd-gold' : 'bg-black/20 border-white/5'
+                                                )}>
+                                                    {section.is_visible && <Icon name="check" className="w-3 h-3 text-dnd-gold" />}
+                                                </div>
+                                                <input type="checkbox" checked={section.is_visible ?? true} onChange={e => updateSection(section.id, {is_visible: e.target.checked})} className="hidden" />
+                                                Visible
+                                            </label>
                                             <input 
                                                 type="text" 
                                                 value={section.title} 
@@ -1938,22 +2034,53 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                             />
                                         </div>
                                         {section.type === 'text' && (
-                                            <textarea 
-                                                value={section.content} 
-                                                onChange={e => updateSection(section.id, {content: e.target.value})} 
-                                                rows={3} 
-                                                className="w-full bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all custom-scrollbar" 
+                                            <RichTextEditor 
+                                                content={section.content || ''} 
+                                                onChange={val => updateSection(section.id, {content: val})} 
                                                 placeholder="Enter content here..."
+                                                className="w-full"
                                             />
                                         )}
                                         {section.type === 'secret' && (
-                                            <textarea 
-                                                value={section.content} 
-                                                onChange={e => updateSection(section.id, {content: e.target.value})} 
-                                                rows={3} 
-                                                className="w-full bg-dnd-red/5 rounded-xl p-3 text-xs text-dnd-red/60 border border-dnd-red/20 focus:outline-none focus:border-dnd-red/40 transition-all font-mono custom-scrollbar" 
+                                            <RichTextEditor 
+                                                content={section.content || ''} 
+                                                onChange={val => updateSection(section.id, {content: val})} 
                                                 placeholder="Enter secret content here..."
+                                                className="w-full"
                                             />
+                                        )}
+                                        {section.type === 'encounter' && (
+                                            <div className="space-y-4">
+                                                <RichTextEditor 
+                                                    content={section.content || ''} 
+                                                    onChange={val => updateSection(section.id, {content: val})} 
+                                                    placeholder="Encounter description..."
+                                                    className="w-full"
+                                                />
+                                                <div className="flex items-center gap-4">
+                                                    <label className="cursor-pointer flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/5 px-4 py-2 rounded-xl transition-all text-xs font-bold text-dnd-text/60">
+                                                        <Icon name="upload" className="w-4 h-4 text-dnd-gold" />
+                                                        {section.json_data ? 'Replace JSON' : 'Upload JSON'}
+                                                        <input 
+                                                            type="file" 
+                                                            accept=".json" 
+                                                            className="hidden" 
+                                                            onChange={async (e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (file) {
+                                                                    const text = await file.text();
+                                                                    updateSection(section.id, { json_data: text });
+                                                                }
+                                                            }} 
+                                                        />
+                                                    </label>
+                                                    {section.json_data && (
+                                                        <span className="text-[10px] text-green-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                                                            <Icon name="check" className="w-3 h-3" /> JSON Attached
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         )}
                                         {section.type === 'image' && (
                                             <input 
@@ -1977,7 +2104,7 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                                                 e.preventDefault();
                                                                 const val = (e.target as HTMLInputElement).value;
                                                                 if (val) {
-                                                                    updateSection(section.id, {list_items: [...(section.list_items || []), val]});
+                                                                    updateSection(section.id, (s) => ({ list_items: [...(s.list_items || []), val] }));
                                                                     (e.target as HTMLInputElement).value = '';
                                                                 }
                                                             }
@@ -1990,7 +2117,7 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                                             <span className="text-xs text-dnd-text/60">{item}</span>
                                                             <button 
                                                                 type="button" 
-                                                                onClick={() => updateSection(section.id, {list_items: section.list_items?.filter((_, j) => i !== j)})}
+                                                                onClick={() => updateSection(section.id, (s) => ({ list_items: s.list_items?.filter((_, j) => i !== j) }))}
                                                                 className="text-dnd-text/20 hover:text-dnd-red transition-colors"
                                                             >
                                                                 <Icon name="close" className="w-3 h-3" />
@@ -2012,7 +2139,7 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                                         const label = (document.getElementById(`stat-label-${section.id}`) as HTMLInputElement).value;
                                                         const value = (document.getElementById(`stat-value-${section.id}`) as HTMLInputElement).value;
                                                         if (label && value) {
-                                                            updateSection(section.id, {stats: [...(section.stats || []), {label, value}]});
+                                                            updateSection(section.id, (s) => ({ stats: [...(s.stats || []), {label, value}] }));
                                                             (document.getElementById(`stat-label-${section.id}`) as HTMLInputElement).value = '';
                                                             (document.getElementById(`stat-value-${section.id}`) as HTMLInputElement).value = '';
                                                         }
@@ -2028,7 +2155,7 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                                             <div className="text-sm text-white font-bold">{stat.value}</div>
                                                             <button 
                                                                 type="button" 
-                                                                onClick={() => updateSection(section.id, {stats: section.stats?.filter((_, j) => i !== j)})}
+                                                                onClick={() => updateSection(section.id, (s) => ({ stats: s.stats?.filter((_, j) => i !== j) }))}
                                                                 className="absolute top-1 right-1 text-dnd-text/20 hover:text-dnd-red opacity-0 group-hover/stat:opacity-100 transition-all"
                                                             >
                                                                 <Icon name="close" className="w-3 h-3" />

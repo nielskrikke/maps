@@ -7,7 +7,8 @@ export type IconName =
   | 'eye-off' | 'trash' | 'pencil' | 'brush' | 'center' | 'image' 
   | 'chevron-down' | 'chevron-right' | 'plus' | 'minus' | 'hand' | 'chest' 
   | 'backpack' | 'search' | 'book' | 'scroll' | 'compass' | 'external' 
-  | 'settings' | 'view_apps' | 'visibility' | 'visibility_off' | 'check';
+  | 'settings' | 'view_apps' | 'visibility' | 'visibility_off' | 'check'
+  | 'bold' | 'italic' | 'underline' | 'list' | 'list-ordered' | 'heading1' | 'heading2' | 'heading3' | 'type';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
   name: IconName | string;
@@ -51,6 +52,15 @@ const iconPaths: Record<string, React.ReactNode> = {
   settings: <><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></>,
   view_apps: <><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></>,
   check: <polyline points="20 6 9 17 4 12" />,
+  bold: <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6zM6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />,
+  italic: <><line x1="19" x2="10" y1="4" y2="4" /><line x1="14" x2="5" y1="20" y2="20" /><line x1="15" x2="9" y1="4" y2="20" /></>,
+  underline: <><path d="M6 3v7a6 6 0 0 0 12 0V3"/><line x1="4" x2="20" y1="21" y2="21"/></>,
+  list: <><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></>,
+  'list-ordered': <><line x1="10" x2="21" y1="6" y2="6"/><line x1="10" x2="21" y1="12" y2="12"/><line x1="10" x2="21" y1="18" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></>,
+  heading1: <><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="m17 12 3-2v8"/></>,
+  heading2: <><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1"/></>,
+  heading3: <><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M17.5 10.5c.5 0 1 .5 1 1.5s-1.5 1.5-1.5 1.5 1.5.5 1.5 1.5-1 1.5-1.5 1.5"/></>,
+  type: <><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></>,
 };
 
 export const Icon: React.FC<IconProps> = ({ name, title, className, ...props }) => {

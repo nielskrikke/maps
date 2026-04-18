@@ -27,7 +27,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     currentView, onViewChange, onDMToolsOpen, onUserSettingsOpen 
 }) => {
     const { user, signOut } = useAuth();
-    const { maps, pins, pinTypes, characters, wikiPages, isPlayerView, setIsPlayerView } = useAppContext();
+    const { 
+        maps, pins, pinTypes, characters, wikiPages, isPlayerView, setIsPlayerView,
+        expandedWikiSection, setExpandedWikiSection 
+    } = useAppContext();
     const [expandedMapIds, setExpandedMapIds] = useState<Set<string>>(new Set());
     const [expandedWikiIds, setExpandedWikiIds] = useState<Set<string>>(new Set());
     
@@ -392,29 +395,52 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                          {/* Wiki Pages Section */}
                          {(filteredWikiData.wikiPages.length > 0) && (
-                            <div className="mb-8">
-                                <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-dnd-text/30 mb-3">Wiki</h3>
-                                {wikiSearchQuery ? (
-                                    <div className="space-y-1">
-                                        {filteredWikiData.wikiPages.map(page => (
-                                            <button 
-                                                key={page.id} 
-                                                onClick={() => onSelectWikiPage(page)}
-                                                className={cn(
-                                                    "w-full flex items-center gap-3 px-3 py-2 text-left transition-all rounded-xl",
-                                                    selectedWikiPage?.id === page.id ? 'text-dnd-gold bg-dnd-gold/10' : 'text-dnd-text/60 hover:bg-white/5'
-                                                )}
-                                            >
-                                                <span className="text-sm">{pinTypes.find(t => t.id === page.type_id)?.emoji || '📄'}</span>
-                                                <span className="font-bold truncate text-sm">{page.title}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="space-y-1">
-                                        {wikiPages.filter(p => !p.parent_id).sort((a,b) => a.title.localeCompare(b.title)).map(page => (
-                                            <WikiPageTreeItem key={page.id} page={page} level={0} />
-                                        ))}
+                            <div className="mb-4">
+                                <button 
+                                   onClick={() => setExpandedWikiSection('wiki')}
+                                   className={cn(
+                                       "w-full px-3 py-2 flex items-center justify-between group transition-colors rounded-xl",
+                                       expandedWikiSection === 'wiki' ? 'bg-white/5' : 'hover:bg-white/5'
+                                   )}
+                                >
+                                   <h3 className={cn(
+                                       "text-[10px] font-bold uppercase tracking-widest transition-colors",
+                                       expandedWikiSection === 'wiki' ? 'text-dnd-gold' : 'text-dnd-text/30'
+                                   )}>Wiki</h3>
+                                   <Icon 
+                                       name="chevron-down" 
+                                       className={cn(
+                                           "w-3 h-3 transition-transform text-dnd-text/20",
+                                           expandedWikiSection === 'wiki' ? 'rotate-0' : '-rotate-90'
+                                       )} 
+                                   />
+                                </button>
+                                
+                                {expandedWikiSection === 'wiki' && (
+                                    <div className="mt-2 overflow-hidden">
+                                       {wikiSearchQuery ? (
+                                           <div className="space-y-1">
+                                               {filteredWikiData.wikiPages.map(page => (
+                                                   <button 
+                                                       key={page.id} 
+                                                       onClick={() => onSelectWikiPage(page)}
+                                                       className={cn(
+                                                           "w-full flex items-center gap-3 px-3 py-2 text-left transition-all rounded-xl",
+                                                           selectedWikiPage?.id === page.id ? 'text-dnd-gold bg-dnd-gold/10' : 'text-dnd-text/60 hover:bg-white/5'
+                                                       )}
+                                                   >
+                                                       <span className="text-sm">{pinTypes.find(t => t.id === page.type_id)?.emoji || '📄'}</span>
+                                                       <span className="font-bold truncate text-sm">{page.title}</span>
+                                                   </button>
+                                               ))}
+                                           </div>
+                                       ) : (
+                                           <div className="space-y-1">
+                                               {wikiPages.filter(p => !p.parent_id).sort((a,b) => a.title.localeCompare(b.title)).map(page => (
+                                                   <WikiPageTreeItem key={page.id} page={page} level={0} />
+                                               ))}
+                                           </div>
+                                       )}
                                     </div>
                                 )}
                             </div>
@@ -422,77 +448,123 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                          {/* Characters Section */}
                          {(filteredWikiData.characters.length > 0) && (
-                            <div className="mb-8">
-                                <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-dnd-text/30 mb-3">Characters</h3>
-                                {filteredWikiData.characters.map(char => (
-                                    <button
-                                        key={char.id}
-                                        onClick={() => onSelectCharacter(char)}
-                                        className={cn(
-                                            "w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-left transition-all mb-2 border",
-                                            selectedCharacter?.id === char.id 
-                                                ? 'bg-dnd-gold/10 text-dnd-gold border-dnd-gold/20 shadow-lg' 
-                                                : 'hover:bg-white/5 text-dnd-text/60 border-transparent'
-                                        )}
-                                    >
-                                        <div className="w-10 h-10 rounded-full bg-dnd-dark border border-white/10 overflow-hidden flex-shrink-0 shadow-lg">
-                                            {char.image_url ? (
-                                                <img src={char.image_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center opacity-30">
-                                                    <Icon name="user" className="w-5 h-5"/>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div className="font-bold truncate text-sm text-white">{char.name}</div>
-                                            <div className="text-[10px] text-dnd-text/40 truncate uppercase tracking-tighter">
-                                                {char.role_details?.race} {char.role_details?.class}
-                                            </div>
-                                        </div>
-                                    </button>
-                                ))}
+                            <div className="mb-4">
+                                <button 
+                                   onClick={() => setExpandedWikiSection('characters')}
+                                   className={cn(
+                                       "w-full px-3 py-2 flex items-center justify-between group transition-colors rounded-xl",
+                                       expandedWikiSection === 'characters' ? 'bg-white/5' : 'hover:bg-white/5'
+                                   )}
+                                >
+                                   <h3 className={cn(
+                                       "text-[10px] font-bold uppercase tracking-widest transition-colors",
+                                       expandedWikiSection === 'characters' ? 'text-dnd-gold' : 'text-dnd-text/30'
+                                   )}>Characters</h3>
+                                   <Icon 
+                                       name="chevron-down" 
+                                       className={cn(
+                                           "w-3 h-3 transition-transform text-dnd-text/20",
+                                           expandedWikiSection === 'characters' ? 'rotate-0' : '-rotate-90'
+                                       )} 
+                                   />
+                                </button>
+
+                                {expandedWikiSection === 'characters' && (
+                                    <div className="mt-2 overflow-hidden space-y-1">
+                                       {filteredWikiData.characters.map(char => (
+                                           <button
+                                               key={char.id}
+                                               onClick={() => onSelectCharacter(char)}
+                                               className={cn(
+                                                   "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all mb-1 border",
+                                                   selectedCharacter?.id === char.id 
+                                                       ? 'bg-dnd-gold/10 text-dnd-gold border-dnd-gold/20' 
+                                                       : 'hover:bg-white/5 text-dnd-text/60 border-transparent'
+                                               )}
+                                           >
+                                               <div className="w-8 h-8 rounded-full bg-dnd-dark border border-white/10 overflow-hidden flex-shrink-0">
+                                                   {char.image_url ? (
+                                                       <img src={char.image_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                                   ) : (
+                                                       <div className="w-full h-full flex items-center justify-center opacity-30">
+                                                           <Icon name="user" className="w-4 h-4"/>
+                                                       </div>
+                                                   )}
+                                               </div>
+                                               <div className="min-w-0">
+                                                   <div className="font-bold truncate text-sm text-white">{char.name}</div>
+                                                   <div className="text-[9px] text-dnd-text/40 truncate uppercase tracking-tighter font-medium">
+                                                       {char.role_details?.race} {char.role_details?.class}
+                                                   </div>
+                                               </div>
+                                           </button>
+                                       ))}
+                                    </div>
+                                )}
                             </div>
                          )}
 
                          {/* Locations Section */}
                          {(wikiSearchQuery ? filteredWikiData.maps.length > 0 : rootMaps.length > 0) && (
-                             <div>
-                                <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-dnd-text/30 mb-3">Locations</h3>
-                                {wikiSearchQuery ? (
-                                    <div className="space-y-2">
-                                        {filteredWikiData.maps.map(({ map, pins }) => (
-                                            <div key={map.id} className="mb-4">
-                                                <button 
-                                                    onClick={() => onSelectMap(map)}
-                                                    className={cn(
-                                                        "w-full flex items-center gap-3 px-3 py-2 text-left transition-all rounded-xl",
-                                                        selectedMap?.id === map.id ? 'text-dnd-gold bg-dnd-gold/10' : 'text-dnd-text/60 hover:bg-white/5'
-                                                    )}
-                                                >
-                                                    <Icon name="map" className="w-4 h-4 opacity-50"/>
-                                                    <span className="font-bold truncate">{map.name}</span>
-                                                </button>
-                                                <div className="pl-4 border-l border-white/5 ml-5 mt-2 space-y-1">
-                                                    {pins.map(pin => (
-                                                        <button 
-                                                            key={pin.id}
-                                                            onClick={() => onSelectPin(pin)}
-                                                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs rounded-lg text-dnd-text/40 hover:text-dnd-text/80 hover:bg-white/5 transition-all"
-                                                        >
-                                                            <span className="w-1.5 h-1.5 rounded-full shadow-sm" style={{ backgroundColor: pinTypes.find(t => t.id === pin.pin_type_id)?.color }}></span>
-                                                            <span className="truncate">{pin.title}</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="space-y-1">
-                                        {rootMaps.map(map => (
-                                            <WikiModeTreeItem key={map.id} map={map} level={0} />
-                                        ))}
+                             <div className="mb-4">
+                                <button 
+                                   onClick={() => setExpandedWikiSection('locations')}
+                                   className={cn(
+                                       "w-full px-3 py-2 flex items-center justify-between group transition-colors rounded-xl",
+                                       expandedWikiSection === 'locations' ? 'bg-white/5' : 'hover:bg-white/5'
+                                   )}
+                                >
+                                   <h3 className={cn(
+                                       "text-[10px] font-bold uppercase tracking-widest transition-colors",
+                                       expandedWikiSection === 'locations' ? 'text-dnd-gold' : 'text-dnd-text/30'
+                                   )}>Locations</h3>
+                                   <Icon 
+                                       name="chevron-down" 
+                                       className={cn(
+                                           "w-3 h-3 transition-transform text-dnd-text/20",
+                                           expandedWikiSection === 'locations' ? 'rotate-0' : '-rotate-90'
+                                       )} 
+                                   />
+                                </button>
+
+                                {expandedWikiSection === 'locations' && (
+                                    <div className="mt-2 overflow-hidden">
+                                       {wikiSearchQuery ? (
+                                           <div className="space-y-2">
+                                               {filteredWikiData.maps.map(({ map, pins }) => (
+                                                   <div key={map.id} className="mb-4">
+                                                       <button 
+                                                           onClick={() => onSelectMap(map)}
+                                                           className={cn(
+                                                               "w-full flex items-center gap-3 px-3 py-2 text-left transition-all rounded-xl",
+                                                               selectedMap?.id === map.id ? 'text-dnd-gold bg-dnd-gold/10' : 'text-dnd-text/60 hover:bg-white/5'
+                                                           )}
+                                                       >
+                                                           <Icon name="map" className="w-4 h-4 opacity-50"/>
+                                                           <span className="font-bold truncate">{map.name}</span>
+                                                       </button>
+                                                       <div className="pl-4 border-l border-white/5 ml-5 mt-2 space-y-1">
+                                                           {pins.map(pin => (
+                                                               <button 
+                                                                   key={pin.id}
+                                                                   onClick={() => onSelectPin(pin)}
+                                                                   className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs rounded-lg text-dnd-text/40 hover:text-dnd-text/80 hover:bg-white/5 transition-all"
+                                                               >
+                                                                   <span className="w-1.5 h-1.5 rounded-full shadow-sm" style={{ backgroundColor: pinTypes.find(t => t.id === pin.pin_type_id)?.color }}></span>
+                                                                   <span className="truncate">{pin.title}</span>
+                                                               </button>
+                                                           ))}
+                                                       </div>
+                                                   </div>
+                                               ))}
+                                           </div>
+                                       ) : (
+                                           <div className="space-y-1">
+                                               {rootMaps.map(map => (
+                                                   <WikiModeTreeItem key={map.id} map={map} level={0} />
+                                               ))}
+                                           </div>
+                                       )}
                                     </div>
                                 )}
                              </div>
@@ -503,28 +575,30 @@ const Sidebar: React.FC<SidebarProps> = ({
 
             {user?.profile.role === 'DM' && (
                 <div className="mt-4 pt-4 border-t border-white/5 relative z-10">
-                    <h2 className="text-[9px] font-bold tracking-[0.3em] text-dnd-text/20 uppercase px-2 mb-3">DM Tools</h2>
-                    <div className="flex gap-2">
+                    <h2 className="text-[9px] font-bold tracking-[0.3em] text-dnd-text/20 uppercase px-2 mb-3">DM Oversight</h2>
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 shadow-xl">
                         <button 
                             onClick={onDMToolsOpen}
-                            className="flex-1 flex items-center justify-center p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 text-dnd-text/40 hover:text-dnd-gold transition-all group shadow-xl"
-                            title="Management"
+                            className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 hover:text-dnd-gold transition-colors px-1"
                         >
-                            <Icon name="view_apps" className="w-6 h-6" />
+                            Manage
                         </button>
-
-                        <button 
-                            onClick={() => setIsPlayerView(!isPlayerView)}
-                            className={cn(
-                                "flex-1 flex items-center justify-center p-2.5 rounded-xl border transition-all shadow-xl",
-                                isPlayerView 
-                                    ? 'bg-dnd-gold/10 border-dnd-gold/30 text-dnd-gold shadow-dnd-gold/10' 
-                                    : 'bg-white/5 border-white/5 text-dnd-text/40 hover:bg-white/10 hover:text-white'
-                            )}
-                            title={isPlayerView ? "Switch to DM View" : "Switch to Player View"}
-                        >
-                            <Icon name={isPlayerView ? "visibility" : "visibility_off"} className="w-6 h-6" />
-                        </button>
+                        
+                        <div className="flex items-center gap-2">
+                             <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-dnd-text/20">Player View</span>
+                             <button 
+                                onClick={() => setIsPlayerView(!isPlayerView)}
+                                className={cn(
+                                    "relative inline-flex h-4 w-8 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                                    isPlayerView ? 'bg-dnd-gold' : 'bg-white/10'
+                                )}
+                            >
+                                <span className={cn(
+                                    "pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                                    isPlayerView ? 'translate-x-4' : 'translate-x-0'
+                                )} />
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

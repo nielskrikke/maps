@@ -4,8 +4,9 @@ import { useAppContext } from '../contexts/AppContext';
 import { useAuth } from '../App';
 import { Map as MapType, Pin, Character, Comment, WikiPage } from '../types';
 import { Icon } from './Icons';
+import { RichTextEditor } from './RichTextEditor';
 import { supabase } from '../services/supabase';
-import { cn } from '../lib/utils';
+import { cn, stripHtml } from '../lib/utils';
 
 interface WikiProps {
     selectedMap: MapType | null;
@@ -15,9 +16,12 @@ interface WikiProps {
     onSelectMap: (map: MapType) => void;
     onLocatePin: (pin: Pin) => void;
     onSelectWikiPage: (page: WikiPage) => void;
+    onSelectCharacter: (char: Character) => void;
+    onSelectPin: (pin: Pin) => void;
     onEditWikiPage?: (page: WikiPage) => void;
     onEditCharacter?: (char: Character) => void;
     onEditPin?: (pin: Pin) => void;
+    onHome?: () => void;
 }
 
 const Wiki: React.FC<WikiProps> = ({ 
@@ -28,11 +32,17 @@ const Wiki: React.FC<WikiProps> = ({
     onSelectMap, 
     onLocatePin, 
     onSelectWikiPage,
+    onSelectCharacter,
+    onSelectPin,
     onEditWikiPage,
     onEditCharacter,
-    onEditPin
+    onEditPin,
+    onHome
 }) => {
-    const { maps, pins, pinTypes, characters, wikiPages, isPlayerView } = useAppContext();
+    const { 
+        maps, pins, pinTypes, characters, wikiPages, isPlayerView,
+        expandedWikiSection, setExpandedWikiSection 
+    } = useAppContext();
     const { user } = useAuth();
     const isDM = user?.profile.role === 'DM';
     const canSeeSecrets = isDM && !isPlayerView;
@@ -77,6 +87,17 @@ const Wiki: React.FC<WikiProps> = ({
         if (data) setCharacterComments([...characterComments, data as any]);
         setNewComment('');
         setIsPrivateComment(false);
+    };
+
+    const handleDeleteCharacterComment = async (commentId: string) => {
+        const { error } = await supabase
+            .from('comments')
+            .delete()
+            .eq('id', commentId);
+        
+        if (!error) {
+            setCharacterComments(prev => prev.filter(c => c.id !== commentId));
+        }
     };
 
     // Get pins for the currently active map (to display in content area)
@@ -124,19 +145,19 @@ const Wiki: React.FC<WikiProps> = ({
                 {/* Header */}
                 <div className="border-b border-white/5 pb-8">
                     <div className="flex items-center gap-6 mb-6">
-                        <div className="flex items-center justify-center w-20 h-20 rounded-2xl shadow-2xl text-4xl ring-2 ring-white/10" style={{ backgroundColor: type?.color || '#555' }}>
+                        <div className="flex items-center justify-center w-14 h-14 rounded-2xl shadow-2xl text-2xl ring-2 ring-white/10" style={{ backgroundColor: type?.color || '#555' }}>
                             {type?.emoji || '📍'}
                         </div>
                         <div>
                             <div className="flex items-center gap-4">
-                                <h1 className="text-5xl font-serif font-bold text-white tracking-tight">{pin.title}</h1>
+                                <h1 className="text-3xl font-serif font-bold text-white tracking-tight">{pin.title}</h1>
                                 {isDM && !isPlayerView && onEditPin && (
                                     <button 
                                         onClick={() => onEditPin(pin)}
-                                        className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-dnd-gold transition-all border border-white/5 shadow-lg"
+                                        className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl text-dnd-gold transition-all border border-white/5 shadow-lg"
                                         title="Edit Pin"
                                     >
-                                        <Icon name="pencil" className="w-5 h-5" />
+                                        <Icon name="pencil" className="w-4 h-4" />
                                     </button>
                                 )}
                             </div>
@@ -147,17 +168,18 @@ const Wiki: React.FC<WikiProps> = ({
                         </div>
                         <button 
                             onClick={() => onLocatePin(pin)}
-                            className="ml-auto flex items-center gap-2 bg-dnd-gold text-white px-6 py-3 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest shadow-xl shadow-dnd-gold/20 hover:brightness-110 group"
+                            className="ml-auto flex items-center gap-2 bg-dnd-gold text-white px-4 py-2 rounded-xl transition-all text-[9px] font-bold uppercase tracking-widest shadow-xl shadow-dnd-gold/20 hover:brightness-110 group"
                         >
-                            <Icon name="compass" className="w-4 h-4 group-hover:rotate-45 transition-transform"/>
+                            <Icon name="compass" className="w-3.5 h-3.5 group-hover:rotate-45 transition-transform"/>
                             Locate
                         </button>
                     </div>
 
                     {pin.data.description && (
-                         <div className="prose prose-invert max-w-none text-dnd-text/80 text-xl leading-relaxed glass-panel p-8 rounded-2xl border border-white/5 shadow-2xl font-medium">
-                            {pin.data.description}
-                         </div>
+                         <div 
+                            className="rich-text-content max-w-none text-dnd-text/80 text-xl leading-relaxed glass-panel p-8 rounded-2xl border border-white/5 shadow-2xl font-medium"
+                            dangerouslySetInnerHTML={{ __html: pin.data.description }}
+                         />
                     )}
                 </div>
 
@@ -166,7 +188,8 @@ const Wiki: React.FC<WikiProps> = ({
                 {/* Sections */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {pin.data.sections?.map((section, idx) => {
-                        if (section.type === 'secret' && !canSeeSecrets) return null;
+                        const isVisible = section.is_visible ?? (section.type !== 'secret' && section.type !== 'encounter');
+                        if (!isVisible && !canSeeSecrets) return null;
                         
                         const isFullWidth = section.type === 'text' || section.type === 'list' || section.type === 'inventory';
                         
@@ -191,8 +214,47 @@ const Wiki: React.FC<WikiProps> = ({
                                 </div>
                                 
                                 <div className="p-6">
-                                    {section.type === 'text' && <p className="whitespace-pre-wrap text-dnd-text/60 leading-relaxed">{section.content}</p>}
-                                    {section.type === 'secret' && <p className="whitespace-pre-wrap text-dnd-red/80 leading-relaxed font-mono text-sm">{section.content}</p>}
+                                    {section.type === 'text' && (
+                                        <div 
+                                            className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                                        />
+                                    )}
+                                    {section.type === 'secret' && (
+                                        <div 
+                                            className="text-dnd-red/80 leading-relaxed font-mono text-sm rich-text-content max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                                        />
+                                    )}
+                                    {section.type === 'encounter' && (
+                                        <div className="space-y-4">
+                                            {section.content && (
+                                                <div 
+                                                    className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
+                                                    dangerouslySetInnerHTML={{ __html: section.content }}
+                                                />
+                                            )}
+                                            {section.json_data && (
+                                                <button 
+                                                    onClick={() => {
+                                                        const blob = new Blob([section.json_data!], { type: 'application/json' });
+                                                        const url = URL.createObjectURL(blob);
+                                                        const a = document.createElement('a');
+                                                        a.href = url;
+                                                        a.download = `${section.title.replace(/\s+/g, '_').toLowerCase() || 'encounter'}.json`;
+                                                        document.body.appendChild(a);
+                                                        a.click();
+                                                        document.body.removeChild(a);
+                                                        URL.revokeObjectURL(url);
+                                                    }}
+                                                    className="flex items-center gap-2 bg-dnd-gold/10 hover:bg-dnd-gold/20 text-dnd-gold px-4 py-2 rounded-xl border border-dnd-gold/20 transition-all text-xs font-bold uppercase tracking-widest"
+                                                >
+                                                    <Icon name="download" className="w-4 h-4" />
+                                                    Download Encounter
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                     
                                     {section.type === 'list' && (
                                         <>
@@ -323,33 +385,53 @@ const Wiki: React.FC<WikiProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
                     <div className="md:col-span-2 space-y-8">
-                        <div className="bg-white/5 p-8 rounded-2xl border border-white/5 shadow-xl">
-                            <h3 className="font-serif text-2xl text-white font-bold mb-6 border-b border-white/5 pb-4">Biography</h3>
-                            <p className="whitespace-pre-wrap text-dnd-text/60 leading-relaxed font-medium">{char.backstory || "No records of this soul exist."}</p>
+                        <div className="bg-black/15 rounded-2xl border border-white/5 overflow-hidden">
+                            <h3 className="bg-black/30 px-8 py-3 border-b border-white/5 font-sans text-[10px] text-white/40 font-black uppercase tracking-[0.2em]">Biography</h3>
+                            <div className="p-8">
+                                <div 
+                                    className="text-dnd-text/60 leading-relaxed font-medium rich-text-content max-w-none"
+                                    dangerouslySetInnerHTML={{ __html: char.backstory || "No records of this soul exist." }}
+                                />
+                            </div>
                         </div>
 
                         {/* Comments Section */}
-                        <div className="bg-white/5 p-8 rounded-2xl border border-white/5 shadow-xl">
-                            <h3 className="font-serif text-2xl text-white font-bold mb-6 border-b border-white/5 pb-4">Notes</h3>
-                            <div className="space-y-4 mb-8">
+                        <div className="bg-black/15 rounded-2xl border border-white/5 overflow-hidden">
+                            <h3 className="bg-black/30 px-8 py-3 border-b border-white/5 font-sans text-[10px] text-white/40 font-black uppercase tracking-[0.2em]">Notes</h3>
+                            <div className="p-8">
+                                <div className="space-y-4 mb-8">
                                 {characterComments.length === 0 && <p className="text-dnd-text/20 italic text-sm py-4">No notes found.</p>}
                                 {characterComments.map(comment => (
-                                    <div key={comment.id} className="bg-black/20 p-5 rounded-2xl border border-white/5 shadow-lg">
+                                    <div key={comment.id} className="bg-black/40 p-5 rounded-2xl border border-white/5 shadow-lg">
                                         <div className="flex justify-between items-center mb-3">
                                             <span className="font-bold text-dnd-gold text-sm">{comment.users.username}</span>
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">{new Date(comment.created_at).toLocaleDateString()}</span>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">{new Date(comment.created_at).toLocaleDateString()}</span>
+                                                {(isDM || comment.user_id === user?.id) && (
+                                                    <button 
+                                                        onClick={() => handleDeleteCharacterComment(comment.id)}
+                                                        className="text-dnd-red/40 hover:text-dnd-red transition-colors"
+                                                        title="Delete Note"
+                                                    >
+                                                        <Icon name="trash" className="w-3.5 h-3.5" />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
-                                        <p className="text-dnd-text/60 text-sm leading-relaxed">{comment.text}</p>
+                                        <div 
+                                            className="text-dnd-text/60 text-sm leading-relaxed rich-text-content max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: comment.text }}
+                                        />
                                     </div>
                                 ))}
                             </div>
                             <form onSubmit={handleAddCharacterComment} className="space-y-4">
-                                <textarea 
-                                    value={newComment} 
-                                    onChange={e => setNewComment(e.target.value)} 
+                                <RichTextEditor 
+                                    content={newComment} 
+                                    onChange={setNewComment} 
                                     placeholder="Add a note..." 
-                                    className="w-full bg-black/20 border border-white/5 rounded-2xl p-4 text-sm text-white focus:outline-none focus:border-dnd-gold/50 transition-all placeholder-dnd-text/20"
-                                    rows={3}
+                                    isSmall={true}
+                                    className="w-full"
                                 />
                                 <div className="flex justify-end">
                                     <button type="submit" className="bg-dnd-gold hover:brightness-110 text-white px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest shadow-xl shadow-dnd-gold/20 transition-all">Post Note</button>
@@ -357,28 +439,57 @@ const Wiki: React.FC<WikiProps> = ({
                             </form>
                         </div>
                     </div>
+                    </div>
 
                     <div className="space-y-8">
                         {canSeeSecrets && char.gm_notes && (
-                            <div className="bg-dnd-red/5 p-6 rounded-2xl border border-dnd-red/20 shadow-xl">
-                                <h3 className="font-serif text-lg text-dnd-red font-bold mb-3 flex items-center gap-2"><Icon name="lock" className="w-4 h-4"/> GM Secrets</h3>
-                                <p className="text-sm text-dnd-red/80 whitespace-pre-wrap leading-relaxed font-mono">{char.gm_notes}</p>
+                            <div className="bg-dnd-red/5 rounded-2xl border border-dnd-red/20 overflow-hidden">
+                                <h3 className="bg-dnd-red/10 px-6 py-3 border-b border-dnd-red/10 font-sans text-[10px] text-dnd-red font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <Icon name="lock" className="w-3.5 h-3.5"/> GM Secrets
+                                </h3>
+                                <div className="p-6">
+                                    <div 
+                                        className="text-sm text-dnd-red/80 leading-relaxed font-mono rich-text-content max-w-none"
+                                        dangerouslySetInnerHTML={{ __html: char.gm_notes }}
+                                    />
+                                    {char.character_json && (
+                                        <button 
+                                            onClick={() => {
+                                                const blob = new Blob([JSON.stringify(char.character_json, null, 2)], { type: 'application/json' });
+                                                const url = URL.createObjectURL(blob);
+                                                const a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = `${char.name.replace(/\s+/g, '_').toLowerCase()}.json`;
+                                                document.body.appendChild(a);
+                                                a.click();
+                                                document.body.removeChild(a);
+                                                URL.revokeObjectURL(url);
+                                            }}
+                                            className="mt-4 flex items-center gap-2 bg-dnd-red/10 hover:bg-dnd-red/20 text-dnd-red px-4 py-2 rounded-xl border border-dnd-red/20 transition-all text-xs font-bold uppercase tracking-widest"
+                                        >
+                                            <Icon name="download" className="w-4 h-4" />
+                                            Download JSON
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         )}
 
-                        <div className="bg-white/5 p-6 rounded-2xl border border-white/5 shadow-xl">
-                            <h3 className="font-serif text-lg text-white font-bold mb-5 border-b border-white/5 pb-3">Connections</h3>
-                            {char.relationships.length > 0 ? (
-                                <ul className="space-y-4">
-                                    {char.relationships.map((rel, i) => (
-                                        <li key={i} className="text-sm group">
-                                            <div className="font-bold text-white group-hover:text-dnd-gold transition-colors">{getCharacterName(rel.targetId)}</div>
-                                            <div className="text-dnd-gold/60 text-[10px] uppercase tracking-widest font-bold mt-1">{rel.type}</div>
-                                            {rel.notes && <div className="text-dnd-text/40 italic mt-2 text-xs border-l-2 border-white/5 pl-3">"{rel.notes}"</div>}
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : <p className="text-dnd-text/20 italic text-sm">No known connections.</p>}
+                        <div className="bg-black/15 rounded-2xl border border-white/5 overflow-hidden">
+                            <h3 className="bg-black/30 px-6 py-3 border-b border-white/5 font-sans text-[10px] text-white/40 font-black uppercase tracking-[0.2em]">Connections</h3>
+                            <div className="p-6">
+                                {char.relationships.length > 0 ? (
+                                    <ul className="space-y-4">
+                                        {char.relationships.map((rel, i) => (
+                                            <li key={i} className="text-sm group">
+                                                <div className="font-bold text-white group-hover:text-dnd-gold transition-colors">{getCharacterName(rel.targetId)}</div>
+                                                <div className="text-dnd-gold/60 text-[10px] uppercase tracking-widest font-bold mt-1">{rel.type}</div>
+                                                {rel.notes && <div className="text-dnd-text/40 italic mt-2 text-xs border-l-2 border-white/5 pl-3">"{rel.notes}"</div>}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : <p className="text-dnd-text/20 italic text-sm">No known connections.</p>}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -396,19 +507,19 @@ const Wiki: React.FC<WikiProps> = ({
                 {/* Header */}
                 <div className="border-b border-white/5 pb-8">
                     <div className="flex items-center gap-6 mb-6">
-                        <div className="flex items-center justify-center w-20 h-20 rounded-2xl shadow-2xl text-4xl ring-2 ring-white/10" style={{ backgroundColor: type?.color || '#555' }}>
+                        <div className="flex items-center justify-center w-14 h-14 rounded-2xl shadow-2xl text-2xl ring-2 ring-white/10" style={{ backgroundColor: type?.color || '#555' }}>
                             {type?.emoji || '📄'}
                         </div>
                         <div>
                             <div className="flex items-center gap-4">
-                                <h1 className="text-5xl font-serif font-bold text-white tracking-tight">{page.title}</h1>
+                                <h1 className="text-3xl font-serif font-bold text-white tracking-tight">{page.title}</h1>
                                 {isDM && !isPlayerView && onEditWikiPage && (
                                     <button 
                                         onClick={() => onEditWikiPage(page)}
-                                        className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-dnd-gold transition-all border border-white/5 shadow-lg"
+                                        className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl text-dnd-gold transition-all border border-white/5 shadow-lg"
                                         title="Edit Wiki Page"
                                     >
-                                        <Icon name="pencil" className="w-5 h-5" />
+                                        <Icon name="pencil" className="w-4 h-4" />
                                     </button>
                                 )}
                             </div>
@@ -419,9 +530,10 @@ const Wiki: React.FC<WikiProps> = ({
                     </div>
 
                     {page.content && (
-                         <div className="prose prose-invert max-w-none text-dnd-text/80 text-xl leading-relaxed glass-panel p-8 rounded-2xl border border-white/5 shadow-2xl font-medium">
-                            {page.content}
-                         </div>
+                         <div 
+                            className="rich-text-content max-w-none text-dnd-text/80 text-xl leading-relaxed glass-panel p-8 rounded-2xl border border-white/5 shadow-2xl font-medium"
+                            dangerouslySetInnerHTML={{ __html: page.content }}
+                         />
                     )}
                 </div>
 
@@ -436,7 +548,7 @@ const Wiki: React.FC<WikiProps> = ({
                                 <button 
                                     key={sp.id} 
                                     onClick={() => onSelectWikiPage(sp)}
-                                    className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 hover:border-dnd-gold/30 transition-all group text-left"
+                                    className="flex items-center gap-4 bg-black/30 p-4 rounded-xl border border-white/5 hover:bg-white/5 hover:border-dnd-gold/30 transition-all group text-left"
                                 >
                                     <span className="text-2xl">{pinTypes.find(t => t.id === sp.type_id)?.emoji || '📄'}</span>
                                     <div>
@@ -462,7 +574,7 @@ const Wiki: React.FC<WikiProps> = ({
                                     <button 
                                         key={pin.id} 
                                         onClick={() => onLocatePin(pin)}
-                                        className="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 hover:border-dnd-gold/30 transition-all group text-left"
+                                        className="flex items-center gap-4 bg-black/30 p-4 rounded-xl border border-white/5 hover:bg-white/5 hover:border-dnd-gold/30 transition-all group text-left"
                                     >
                                         <span className="text-2xl">{pinTypes.find(t => t.id === pin.pin_type_id)?.emoji || '📍'}</span>
                                         <div>
@@ -479,30 +591,69 @@ const Wiki: React.FC<WikiProps> = ({
                 {/* Sections */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {page.sections?.map((section, idx) => {
-                        if (section.type === 'secret' && !canSeeSecrets) return null;
+                        const isVisible = section.is_visible ?? (section.type !== 'secret' && section.type !== 'encounter');
+                        if (!isVisible && !canSeeSecrets) return null;
                         const isFullWidth = section.type === 'text' || section.type === 'list' || section.type === 'inventory';
                         
                         return (
                             <div key={idx} className={cn(
-                                "bg-white/5 rounded-2xl border border-white/5 overflow-hidden shadow-xl",
+                                "bg-black/15 rounded-2xl border border-white/5 overflow-hidden",
                                 isFullWidth ? 'md:col-span-2' : '',
                                 section.type === 'secret' ? 'border-dnd-red/20 bg-dnd-red/5' : ''
                             )}>
                                 <div className={cn(
-                                    "px-6 py-4 border-b border-white/5 flex items-center justify-between",
-                                    section.type === 'secret' ? 'bg-dnd-red/10' : 'bg-white/5'
+                                    "px-6 py-3 border-b border-white/5 flex items-center justify-between",
+                                    section.type === 'secret' ? 'bg-dnd-red/10' : 'bg-black/30'
                                 )}>
                                     <h3 className={cn(
-                                        "font-serif text-xl font-bold",
-                                        section.type === 'secret' ? 'text-dnd-red' : 'text-white'
+                                        "font-sans text-[10px] font-black uppercase tracking-[0.2em]",
+                                        section.type === 'secret' ? 'text-dnd-red' : 'text-dnd-gold/60'
                                     )}>
                                         {section.title}
                                     </h3>
-                                    <span className="text-[10px] uppercase text-dnd-text/20 font-bold tracking-[0.2em]">{section.type}</span>
                                 </div>
                                 <div className="p-6">
-                                    {section.type === 'text' && <p className="whitespace-pre-wrap text-dnd-text/60 leading-relaxed">{section.content}</p>}
-                                    {section.type === 'secret' && <p className="whitespace-pre-wrap text-dnd-red/80 leading-relaxed font-mono text-sm">{section.content}</p>}
+                                    {section.type === 'text' && (
+                                        <div 
+                                            className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                                        />
+                                    )}
+                                    {section.type === 'secret' && (
+                                        <div 
+                                            className="text-dnd-red/80 leading-relaxed font-mono text-sm rich-text-content max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                                        />
+                                    )}
+                                    {section.type === 'encounter' && (
+                                        <div className="space-y-4">
+                                            {section.content && (
+                                                <div 
+                                                    className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
+                                                    dangerouslySetInnerHTML={{ __html: section.content }}
+                                                />
+                                            )}
+                                            {section.json_data && (
+                                                <button 
+                                                    onClick={() => {
+                                                        const blob = new Blob([section.json_data!], { type: 'application/json' });
+                                                        const url = URL.createObjectURL(blob);
+                                                        const a = document.createElement('a');
+                                                        a.href = url;
+                                                        a.download = `${section.title.replace(/\s+/g, '_').toLowerCase() || 'encounter'}.json`;
+                                                        document.body.appendChild(a);
+                                                        a.click();
+                                                        document.body.removeChild(a);
+                                                        URL.revokeObjectURL(url);
+                                                    }}
+                                                    className="flex items-center gap-2 bg-dnd-gold/10 hover:bg-dnd-gold/20 text-dnd-gold px-4 py-2 rounded-xl border border-dnd-gold/20 transition-all text-xs font-bold uppercase tracking-widest"
+                                                >
+                                                    <Icon name="download" className="w-4 h-4" />
+                                                    Download Encounter
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                     {section.type === 'list' && (
                                         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             {section.list_items?.map((item, i) => (
@@ -527,12 +678,59 @@ const Wiki: React.FC<WikiProps> = ({
 
     // --- Main Layout ---
     return (
-        <div className="flex h-full w-full bg-dnd-dark text-dnd-text overflow-hidden">
-            {/* Content Area */}
+        <div className="flex flex-col h-full w-full bg-dnd-dark text-dnd-text overflow-hidden">
+            {/* Category Tabs (Persistent Navigation) */}
+            <div className="flex items-center justify-center gap-3 py-6 border-b border-white/5 bg-dnd-dark/40 backdrop-blur-xl sticky top-0 z-50">
+                <button 
+                    onClick={() => {
+                        onHome?.();
+                        setExpandedWikiSection('wiki');
+                    }}
+                    className={cn(
+                        "px-8 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all border",
+                        expandedWikiSection === 'wiki' 
+                            ? 'bg-dnd-gold text-dnd-dark border-dnd-gold shadow-[0_0_20px_rgba(212,175,55,0.3)]' 
+                            : 'bg-white/5 text-dnd-text/40 border-transparent hover:bg-white/10 hover:text-dnd-text/60'
+                    )}
+                >
+                    Wiki
+                </button>
+
+                <button 
+                    onClick={() => {
+                        onHome?.();
+                        setExpandedWikiSection('characters');
+                    }}
+                    className={cn(
+                        "px-8 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all border",
+                        expandedWikiSection === 'characters' 
+                            ? 'bg-dnd-gold text-dnd-dark border-dnd-gold shadow-[0_0_20px_rgba(212,175,55,0.3)]' 
+                            : 'bg-white/5 text-dnd-text/40 border-transparent hover:bg-white/10 hover:text-dnd-text/60'
+                    )}
+                >
+                    Characters
+                </button>
+
+                <button 
+                    onClick={() => {
+                        onHome?.();
+                        setExpandedWikiSection('locations');
+                    }}
+                    className={cn(
+                        "px-8 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all border",
+                        expandedWikiSection === 'locations' 
+                            ? 'bg-dnd-gold text-dnd-dark border-dnd-gold shadow-[0_0_20px_rgba(212,175,55,0.3)]' 
+                            : 'bg-white/5 text-dnd-text/40 border-transparent hover:bg-white/10 hover:text-dnd-text/60'
+                    )}
+                >
+                    Locations
+                </button>
+            </div>
+
             <div className="flex-1 overflow-y-auto custom-scrollbar relative">
                 {/* Background Pattern/Gradient */}
                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30 pointer-events-none" />
-                <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-dnd-gold/5 to-transparent pointer-events-none" />
+                <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-dnd-gold/2 to-transparent pointer-events-none" />
 
                 <div className="p-6 md:p-10 min-h-full relative z-10">
                     {selectedPin ? (
@@ -553,11 +751,11 @@ const Wiki: React.FC<WikiProps> = ({
                             className="max-w-4xl mx-auto space-y-6"
                         >
                             <div className="flex items-center gap-6 border-b border-white/5 pb-6">
-                                <div className="w-16 h-16 rounded-2xl overflow-hidden ring-4 ring-white/5 shadow-2xl bg-dnd-dark">
+                                <div className="w-14 h-14 rounded-2xl overflow-hidden ring-4 ring-white/5 shadow-2xl bg-dnd-dark">
                                     <img src={selectedMap.image_url} className="w-full h-full object-cover" alt={selectedMap.name} referrerPolicy="no-referrer" />
                                 </div>
                                 <div>
-                                    <h1 className="text-3xl font-serif font-bold text-white tracking-tight">{selectedMap.name}</h1>
+                                    <h1 className="text-2xl font-serif font-bold text-white tracking-tight">{selectedMap.name}</h1>
                                     <p className="text-dnd-gold mt-1 uppercase tracking-[0.3em] text-[9px] font-bold flex items-center gap-3">
                                         <span className="capitalize">{selectedMap.map_type?.replace('_', ' ') || 'Region'} Map</span>
                                         <span className="text-dnd-text/20">•</span>
@@ -566,9 +764,9 @@ const Wiki: React.FC<WikiProps> = ({
                                 </div>
                                 <button 
                                     onClick={() => onSelectMap(selectedMap)}
-                                    className="ml-auto flex items-center gap-2.5 bg-dnd-gold text-white px-5 py-2.5 rounded-xl shadow-2xl shadow-dnd-gold/20 transition-all font-bold uppercase tracking-widest text-[10px] hover:brightness-110"
+                                    className="ml-auto flex items-center gap-2 bg-dnd-gold text-white px-4 py-2 rounded-xl shadow-2xl shadow-dnd-gold/20 transition-all font-bold uppercase tracking-widest text-[9px] hover:brightness-110"
                                 >
-                                    <Icon name="map" className="w-4 h-4"/>
+                                    <Icon name="map" className="w-3.5 h-3.5"/>
                                     Enter Realm
                                 </button>
                             </div>
@@ -582,20 +780,17 @@ const Wiki: React.FC<WikiProps> = ({
                                         <button 
                                             key={pin.id}
                                             onClick={() => onLocatePin(pin)}
-                                            className="bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 p-4 rounded-xl text-left transition-all group flex flex-col gap-3 shadow-xl"
+                                            className="bg-black/15 hover:bg-black/30 border border-white/5 hover:border-dnd-gold/30 p-4 rounded-xl text-left transition-all group flex flex-col gap-3"
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-2xl ring-2 ring-white/5 group-hover:ring-dnd-gold transition-all" style={{ backgroundColor: type?.color }}>
                                                     {type?.emoji}
                                                 </div>
-                                                <div className="min-w-0">
-                                                    <h3 className="font-bold text-white truncate group-hover:text-dnd-gold transition-colors text-base">{pin.title}</h3>
-                                                    <p className="text-[9px] font-bold uppercase tracking-widest text-dnd-text/40 mt-0.5">{type?.name}</p>
+                                                <div className="min-w-0 flex-1">
+                                                    <h3 className="font-bold text-white line-clamp-2 group-hover:text-dnd-gold transition-colors text-base leading-tight">{pin.title}</h3>
+                                                    <p className="text-[9px] font-bold uppercase tracking-widest text-dnd-text/40 mt-1">{type?.name}</p>
                                                 </div>
                                             </div>
-                                            {pin.data.description && (
-                                                <p className="text-xs text-dnd-text/40 line-clamp-2 leading-relaxed font-medium">{pin.data.description}</p>
-                                            )}
                                             
                                             {charsAtPin.length > 0 && (
                                                 <div className="mt-1 pt-3 border-t border-white/5 flex items-center gap-2">
@@ -627,55 +822,105 @@ const Wiki: React.FC<WikiProps> = ({
                             </div>
                         </div>
                     ) : (
-                        <div className="max-w-6xl mx-auto space-y-12">
-                            <div className="text-center py-12 border-b border-white/5">
-                                <Icon name="book" className="w-24 h-24 text-dnd-gold/20 mx-auto mb-6"/>
-                                <h2 className="text-4xl font-serif font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-[#e5c983] to-[#8a7238] drop-shadow-2xl uppercase">
-                                    WIKI
-                                </h2>
-                                <p className="mt-4 text-dnd-text/40 text-lg max-w-2xl mx-auto font-medium">Explore the collective knowledge of your world. Select a page from the sidebar or browse the top-level entries below.</p>
-                            </div>
-
+                        <div className="max-w-6xl mx-auto space-y-8">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {wikiPages.filter(p => !p.parent_id).map(page => {
-                                    const type = pinTypes.find(t => t.id === page.type_id);
-                                    return (
-                                        <button 
-                                            key={page.id}
-                                            onClick={() => onSelectWikiPage(page)}
-                                            className="bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 p-6 rounded-2xl text-left transition-all group flex flex-col gap-4 shadow-xl backdrop-blur-sm"
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-2xl ring-2 ring-white/5 group-hover:ring-dnd-gold transition-all" style={{ backgroundColor: type?.color || '#555' }}>
-                                                    {type?.emoji || '📄'}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <h3 className="font-bold text-white truncate group-hover:text-dnd-gold transition-colors text-lg">{page.title}</h3>
-                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 mt-0.5">{type?.name || 'Page'}</p>
-                                                </div>
-                                            </div>
-                                            {page.content && (
-                                                <p className="text-sm text-dnd-text/40 line-clamp-3 leading-relaxed font-medium">{page.content}</p>
+                                    {expandedWikiSection === 'wiki' && (
+                                        <>
+                                            {wikiPages.filter(p => !p.parent_id).map(page => {
+                                                const type = pinTypes.find(t => t.id === page.type_id);
+                                                return (
+                                                    <button 
+                                                        key={page.id}
+                                                        onClick={() => onSelectWikiPage(page)}
+                                                        className="bg-black/15 hover:bg-black/30 border border-white/5 hover:border-dnd-gold/30 p-6 rounded-2xl text-left transition-all group flex flex-col gap-4 backdrop-blur-sm"
+                                                    >
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-2xl ring-2 ring-white/5 group-hover:ring-dnd-gold transition-all" style={{ backgroundColor: type?.color || '#555' }}>
+                                                                {type?.emoji || '📄'}
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <h3 className="font-bold text-white line-clamp-2 group-hover:text-dnd-gold transition-colors text-lg leading-tight">{page.title}</h3>
+                                                                <p className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 mt-1">{type?.name || 'Page'}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="mt-auto pt-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-dnd-gold/60">
+                                                            <span>{wikiPages.filter(p => p.parent_id === page.id).length} Sub-pages</span>
+                                                            <Icon name="chevron-right" className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                            {wikiPages.filter(p => !p.parent_id).length === 0 && (
+                                                <div className="col-span-full py-10 text-center text-dnd-text/20 italic font-medium">No wiki pages found.</div>
                                             )}
-                                            <div className="mt-auto pt-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-dnd-gold/60">
-                                                <span>{wikiPages.filter(p => p.parent_id === page.id).length} Sub-pages</span>
-                                                <Icon name="chevron-right" className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                                {wikiPages.filter(p => !p.parent_id).length === 0 && (
-                                    <div className="col-span-full py-20 text-center text-dnd-text/20 italic font-medium">
-                                        No wiki pages have been created yet.
-                                    </div>
-                                )}
+                                        </>
+                                    )}
+
+                                    {expandedWikiSection === 'characters' && (
+                                        <>
+                                            {characters.map(char => (
+                                                <button 
+                                                    key={char.id}
+                                                    onClick={() => {
+                                                        const p = pins.find(pin => pin.id === char.current_pin_id);
+                                                        onSelectCharacter(char);
+                                                    }}
+                                                    className="bg-black/15 hover:bg-black/30 border border-white/5 hover:border-dnd-gold/30 p-4 rounded-2xl text-left transition-all group flex items-center gap-4 backdrop-blur-sm"
+                                                >
+                                                    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/5 group-hover:border-dnd-gold/30 transition-all flex-shrink-0">
+                                                        {char.image_url ? (
+                                                            <img src={char.image_url} className="w-full h-full object-cover" alt={char.name} referrerPolicy="no-referrer" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center bg-white/5 text-dnd-text/20"><Icon name="user" className="w-6 h-6"/></div>
+                                                        )}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <h3 className="font-bold text-white group-hover:text-dnd-gold transition-colors truncate">{char.name}</h3>
+                                                        <p className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 mt-1">{char.role_details?.race} {char.role_details?.class}</p>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                            {characters.length === 0 && (
+                                                <div className="col-span-full py-10 text-center text-dnd-text/20 italic font-medium">No characters found.</div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {expandedWikiSection === 'locations' && (
+                                        <>
+                                            {maps.filter(m => !m.parent_map_id).map(map => (
+                                                <button 
+                                                    key={map.id}
+                                                    onClick={() => onSelectMap(map)}
+                                                    className="bg-black/15 hover:bg-black/30 border border-white/5 hover:border-dnd-gold/30 p-6 rounded-2xl text-left transition-all group flex flex-col gap-4 backdrop-blur-sm"
+                                                >
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-12 h-12 rounded-xl overflow-hidden ring-2 ring-white/5 group-hover:ring-dnd-gold transition-all">
+                                                            <img src={map.image_url} className="w-full h-full object-cover" alt={map.name} referrerPolicy="no-referrer" />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <h3 className="font-bold text-white group-hover:text-dnd-gold transition-colors text-lg leading-tight">{map.name}</h3>
+                                                            <p className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 mt-1">{map.map_type || 'Region'}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-auto pt-4 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-dnd-gold/60">
+                                                        <span>{pins.filter(p => p.map_id === map.id).length} Locations</span>
+                                                        <Icon name="chevron-right" className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                                                    </div>
+                                                </button>
+                                            ))}
+                                            {maps.filter(m => !m.parent_map_id).length === 0 && (
+                                                <div className="col-span-full py-10 text-center text-dnd-text/20 italic font-medium">No maps found.</div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
-    );
-};
+        );
+    };
 
 export default Wiki;

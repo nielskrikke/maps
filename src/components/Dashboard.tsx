@@ -28,6 +28,7 @@ const Dashboard: React.FC = () => {
     const [selectedPin, setSelectedPin] = useState<Pin | null>(null);
     const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
     const [selectedWikiPage, setSelectedWikiPage] = useState<WikiPage | null>(null);
+    const [expandedWikiSection, setExpandedWikiSection] = useState<'wiki' | 'characters' | 'locations'>('wiki');
 
     // Highlight State (for locating pins from Wiki)
     const [highlightedPinId, setHighlightedPinId] = useState<string | null>(null);
@@ -60,8 +61,8 @@ const Dashboard: React.FC = () => {
 
         const isDM = user.profile.role === 'DM';
 
-        // Optimization: Don't fetch image_url in the initial list to avoid timeouts
-        const mapsQuery = supabase.from('maps').select('id, name, is_visible, created_at, created_by, parent_map_id, map_type, grid_size, pin_scale, is_grid_visible').order('name', {ascending: true});
+        // Fetch all fields including image_url to ensure MapViewer works correctly and supports pre-loading
+        const mapsQuery = supabase.from('maps').select('*').order('name', {ascending: true});
         if (!isDM) mapsQuery.eq('is_visible', true);
 
         const promises = [
@@ -267,7 +268,8 @@ const Dashboard: React.FC = () => {
     return (
         <AppContext.Provider value={{ 
             maps, pinTypes, pins, characters, wikiPages, isPlayerView, error, setError, refreshData, setIsPlayerView,
-            updateLocalPin, updateLocalMap, updateLocalCharacter, updateLocalPinType, updateLocalWikiPage, removeLocalItem
+            updateLocalPin, updateLocalMap, updateLocalCharacter, updateLocalPinType, updateLocalWikiPage, removeLocalItem,
+            expandedWikiSection, setExpandedWikiSection
         }}>
             <div className="flex h-screen w-full flex-col md:flex-row overflow-hidden bg-dnd-dark text-dnd-text">
                 {error && (
@@ -291,6 +293,14 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
                 )}
+                
+                {/* Background Map Preloader */}
+                <div className="fixed -z-50 invisible pointer-events-none opacity-0 h-0 w-0 overflow-hidden">
+                    {maps.map(map => (
+                        <img key={`preload-${map.id}`} src={map.image_url} alt="" referrerPolicy="no-referrer" />
+                    ))}
+                </div>
+
                 <Sidebar
                     selectedMap={selectedMap}
                     selectedPin={selectedPin}
@@ -368,6 +378,8 @@ const Dashboard: React.FC = () => {
                                     }
                                 }}
                                 onSelectWikiPage={handleSelectWikiPage}
+                                onSelectCharacter={handleSelectCharacter}
+                                onSelectPin={handleSelectPin}
                                 onEditWikiPage={(page) => {
                                     setWikiPageToEdit(page);
                                     setWikiPageManagerOpen(true);
@@ -378,6 +390,13 @@ const Dashboard: React.FC = () => {
                                 }}
                                 onEditPin={(pin) => {
                                     setEditingPin(pin);
+                                }}
+                                onHome={() => {
+                                    setSelectedMap(null);
+                                    setSelectedPin(null);
+                                    setSelectedCharacter(null);
+                                    setSelectedWikiPage(null);
+                                    setHighlightedPinId(null);
                                 }}
                             />
                         )}

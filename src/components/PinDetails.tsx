@@ -5,6 +5,7 @@ import { useAuth } from '../App';
 import { useAppContext } from '../contexts/AppContext';
 import { supabase } from '../services/supabase';
 import { Icon } from './Icons';
+import { RichTextEditor } from './RichTextEditor';
 import { cn } from '../lib/utils';
 
 interface PinDetailsProps {
@@ -105,6 +106,17 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
         setIsPrivateComment(false);
     };
 
+    const handleDeleteComment = async (commentId: string) => {
+        const { error } = await supabase
+            .from('comments')
+            .delete()
+            .eq('id', commentId);
+        
+        if (!error) {
+            setComments(prev => prev.filter(c => c.id !== commentId));
+        }
+    };
+
     const handleMoveCharacter = async (charId: string, targetPinId: string | null) => {
         const char = characters.find(c => c.id === charId);
         if (char) {
@@ -147,13 +159,16 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
     const getCharacterName = (id: string) => characters.find(c => c.id === id)?.name || "Unknown";
 
     const renderSection = (section: PinSection, index: number) => {
+        const isVisible = section.is_visible ?? (section.type !== 'secret' && section.type !== 'encounter');
+        if (!isVisible && !isDM) return null;
+
         switch (section.type) {
             case 'inventory':
                  return (
-                    <div key={section.id || index} className="bg-white/5 rounded-2xl overflow-hidden border border-white/5 shadow-xl">
-                        <h3 className="bg-white/5 font-serif text-lg text-dnd-gold px-4 py-3 border-b border-white/5 flex items-center justify-between font-bold">
+                    <div key={section.id || index} className="bg-black/15 rounded-2xl overflow-hidden border border-white/5">
+                        <h3 className="bg-black/30 font-sans text-[10px] text-dnd-gold/60 px-4 py-2.5 border-b border-white/5 flex items-center justify-between font-black uppercase tracking-[0.2em]">
                             {section.title || "Inventory"}
-                            <Icon name="chest" className="w-5 h-5 opacity-50" />
+                            <Icon name="chest" className="w-3.5 h-3.5 opacity-30" />
                         </h3>
                         <div className="p-3 space-y-2">
                             {section.items && section.items.length > 0 ? section.items.map(item => (
@@ -193,8 +208,8 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                  );
             case 'image':
                 return (
-                    <div key={section.id || index} className="bg-white/5 rounded-2xl p-3 border border-white/5 overflow-hidden shadow-xl">
-                        {section.title && <h3 className="font-serif text-lg text-white font-bold mb-3 px-1">{section.title}</h3>}
+                    <div key={section.id || index} className="bg-black/15 rounded-2xl p-3 border border-white/5 overflow-hidden">
+                        {section.title && <h3 className="font-sans text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-3 px-1">{section.title}</h3>}
                         {section.image_url ? (
                             <img src={section.image_url} alt={section.title || 'Pin Image'} className="w-full h-auto rounded-xl shadow-2xl border border-white/10" referrerPolicy="no-referrer" />
                         ) : (
@@ -205,10 +220,10 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                 );
             case 'statblock':
                 return (
-                    <div key={section.id || index} className="bg-white/5 rounded-2xl overflow-hidden border border-white/5 shadow-xl">
-                        <h3 className="bg-white/5 font-serif text-lg text-dnd-gold px-4 py-3 border-b border-white/5 flex items-center justify-between font-bold">
+                    <div key={section.id || index} className="bg-black/15 rounded-2xl overflow-hidden border border-white/5">
+                        <h3 className="bg-black/30 font-sans text-[10px] text-dnd-gold/60 px-4 py-2.5 border-b border-white/5 flex items-center justify-between font-black uppercase tracking-[0.2em]">
                             {section.title}
-                            <Icon name="shield" className="w-4 h-4 opacity-50" />
+                            <Icon name="shield" className="w-3.5 h-3.5 opacity-30" />
                         </h3>
                         <div className="p-4">
                             {section.content && <p className="text-sm text-dnd-text/60 mb-4 italic leading-relaxed">{section.content}</p>}
@@ -225,38 +240,82 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                 );
             case 'list':
                 return (
-                    <div key={section.id || index} className="bg-white/5 rounded-2xl p-5 border border-white/5 shadow-xl">
-                        <h3 className="font-serif text-lg text-white font-bold mb-4 pb-2 border-b border-white/5">{section.title}</h3>
-                        {section.content && <p className="text-sm text-dnd-text/60 mb-4 leading-relaxed">{section.content}</p>}
-                        <ul className="space-y-3">
-                            {section.list_items?.map((item, i) => (
-                                <li key={i} className="flex items-start gap-3 text-sm text-dnd-text/80">
-                                    <span className="text-dnd-gold mt-1">✦</span>
-                                    <span className="leading-relaxed">{item}</span>
-                                </li>
-                            ))}
-                        </ul>
+                    <div key={section.id || index} className="bg-black/15 rounded-2xl p-0 border border-white/5">
+                        <h3 className="bg-black/30 font-sans text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-4 py-2.5 border-b border-white/5">{section.title}</h3>
+                        <div className="p-5">
+                            {section.content && <p className="text-sm text-dnd-text/60 mb-4 leading-relaxed">{section.content}</p>}
+                            <ul className="space-y-3">
+                                {section.list_items?.map((item, i) => (
+                                    <li key={i} className="flex items-start gap-3 text-sm text-dnd-text/80">
+                                        <span className="text-dnd-gold mt-1">✦</span>
+                                        <span className="leading-relaxed">{item}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                     </div>
                 );
             case 'secret':
-                 if (isPlayerView && !isDM) return null;
                  return (
-                    <div key={section.id || index} className="bg-dnd-red/5 rounded-2xl p-5 border border-dnd-red/20 relative overflow-hidden group shadow-xl">
+                    <div key={section.id || index} className="bg-dnd-red/5 rounded-2xl border border-dnd-red/20 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                             <Icon name="lock" className="w-16 h-16 text-dnd-red" />
                         </div>
-                        <h3 className="font-serif text-lg text-dnd-red font-bold mb-3 flex items-center gap-2">
-                            <Icon name="lock" className="w-4 h-4" />
+                        <h3 className="bg-dnd-red/10 font-sans text-[10px] text-dnd-red font-black uppercase tracking-[0.2em] px-4 py-2.5 border-b border-dnd-red/20 flex items-center gap-2">
+                            <Icon name="lock" className="w-3.5 h-3.5" />
                             {section.title}
                         </h3>
-                        <p className="text-sm text-dnd-red/80 whitespace-pre-wrap leading-relaxed relative z-10">{section.content}</p>
+                        <div className="p-5">
+                            <div 
+                                className="text-sm text-dnd-red/80 leading-relaxed relative z-10 rich-text-content max-w-none"
+                                dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                            />
+                        </div>
                     </div>
                  );
+            case 'encounter':
+                return (
+                    <div key={section.id || index} className="bg-black/15 rounded-2xl border border-white/5 overflow-hidden">
+                        <h3 className="bg-black/30 font-sans text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-4 py-2.5 border-b border-white/5">{section.title || "Encounter"}</h3>
+                        <div className="p-5">
+                            {section.content && (
+                                <div 
+                                    className="text-sm text-dnd-text/60 leading-relaxed rich-text-content max-w-none mb-4"
+                                    dangerouslySetInnerHTML={{ __html: section.content }}
+                                />
+                            )}
+                            {section.json_data && (
+                                <button 
+                                    onClick={() => {
+                                        const blob = new Blob([section.json_data!], { type: 'application/json' });
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = `${section.title.replace(/\s+/g, '_').toLowerCase() || 'encounter'}.json`;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        URL.revokeObjectURL(url);
+                                    }}
+                                    className="flex items-center gap-2 bg-dnd-gold/10 hover:bg-dnd-gold/20 text-dnd-gold px-4 py-2 rounded-xl border border-dnd-gold/20 transition-all text-xs font-bold uppercase tracking-widest"
+                                >
+                                    <Icon name="download" className="w-4 h-4" />
+                                    Download Encounter
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                );
             default: // 'text'
                 return (
-                    <div key={section.id || index} className="bg-white/5 rounded-2xl p-5 border border-white/5 shadow-xl">
-                        <h3 className="font-serif text-lg text-white font-bold mb-3 border-b border-white/5 pb-2">{section.title}</h3>
-                        <p className="text-sm text-dnd-text/60 whitespace-pre-wrap leading-relaxed">{section.content}</p>
+                    <div key={section.id || index} className="bg-black/15 rounded-2xl border border-white/5 overflow-hidden">
+                        <h3 className="bg-black/30 font-sans text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-4 py-2.5 border-b border-white/5">{section.title}</h3>
+                        <div className="p-5">
+                            <div 
+                                className="text-sm text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
+                                dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                            />
+                        </div>
                     </div>
                 );
         }
@@ -293,15 +352,16 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
 
                 <div className="mt-4 flex flex-col gap-4">
                     {(presentCharacters.length > 0 || (isDM && !isPlayerView)) && (
-                        <div className="bg-white/5 rounded-xl p-3 border border-white/5 shadow-xl">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-[9px] font-bold uppercase tracking-widest text-dnd-text/40 flex items-center gap-2">
+                        <div className="bg-black/15 rounded-xl border border-white/5 overflow-hidden">
+                            <div className="bg-black/30 px-3 py-2 border-b border-white/5 flex items-center justify-between">
+                                <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-dnd-text/40 flex items-center gap-2">
                                     <Icon name="user" className="w-2.5 h-2.5"/> Presence
                                 </h3>
                                 {isDM && !isPlayerView && !isSummoning && (
                                     <button onClick={() => setIsSummoning(true)} className="text-[9px] font-bold uppercase tracking-widest text-dnd-gold hover:text-white transition-colors">+ Summon</button>
                                 )}
                             </div>
+                            <div className="p-3">
                             
                             {isSummoning && (
                                 <div 
@@ -354,7 +414,8 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                                 {presentCharacters.length === 0 && !isSummoning && <span className="text-xs text-dnd-text/20 italic">The halls are silent.</span>}
                             </div>
                         </div>
-                    )}
+                    </div>
+                )}
 
                     {viewingCharacter && (
                         <div 
@@ -430,7 +491,12 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                         </button>
                     )}
 
-                    {pin.data.description && <p className="text-dnd-text/80 whitespace-pre-wrap leading-relaxed font-medium">{pin.data.description}</p>}
+                    {pin.data.description && (
+                        <div 
+                            className="text-dnd-text/80 leading-relaxed font-medium rich-text-content max-w-none"
+                            dangerouslySetInnerHTML={{ __html: pin.data.description }}
+                        />
+                    )}
                     
                     {linkedMap && (
                         <div className="glass-panel p-5 rounded-2xl group cursor-pointer hover:bg-white/5 transition-all">
@@ -458,28 +524,42 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                     {pin.data.sections?.map((section, index) => renderSection(section, index))}
                     
                     <div className="space-y-6 pt-8 border-t border-white/5">
-                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Wiki & Notes</h3>
-                        <div className="space-y-4">
-                            {comments.map(comment => (
-                                <div key={comment.id} className="text-sm bg-white/5 p-4 rounded-2xl border border-white/5 shadow-xl">
+                        <div className="bg-black/15 rounded-xl border border-white/5 overflow-hidden mb-6">
+                            <h3 className="bg-black/30 px-4 py-2 border-b border-white/5 text-[9px] font-black uppercase tracking-[0.2em] text-dnd-text/40">Wiki & Notes</h3>
+                            <div className="p-4 space-y-4">
+                                {comments.map(comment => (
+                             <div className="text-sm bg-black/40 p-4 rounded-2xl border border-white/5 shadow-xl">
                                     <div className="flex items-center gap-2 mb-2">
                                         <p className="font-bold text-dnd-gold">{comment.users.username}</p>
                                         <span className="text-dnd-text/20 text-xs">•</span>
                                         <p className="text-[10px] text-dnd-text/40 font-bold uppercase tracking-tighter">{new Date(comment.created_at).toLocaleDateString()}</p>
-                                        {comment.is_private && <span className="ml-auto text-[10px] text-dnd-red font-bold uppercase tracking-widest bg-dnd-red/10 px-2 py-1 rounded-lg border border-dnd-red/20">Private</span>}
+                                        {comment.is_private && <span className="text-[10px] text-dnd-red font-bold uppercase tracking-widest bg-dnd-red/10 px-2 py-1 rounded-lg border border-dnd-red/20">Private</span>}
+                                        {(isDM || comment.user_id === user?.id) && (
+                                            <button 
+                                                onClick={() => handleDeleteComment(comment.id)}
+                                                className="ml-auto text-dnd-red/40 hover:text-dnd-red transition-colors"
+                                                title="Delete Note"
+                                            >
+                                                <Icon name="trash" className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
                                     </div>
-                                    <p className="text-dnd-text/60 leading-relaxed">{comment.text}</p>
+                                    <div 
+                                        className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
+                                        dangerouslySetInnerHTML={{ __html: comment.text }}
+                                    />
                                 </div>
                             ))}
                         </div>
+                    </div>
                         <form onSubmit={handleAddComment} className="space-y-4 mt-6">
-                            <textarea
-                                value={newComment}
-                                onChange={(e) => setNewComment(e.target.value)}
+                            <RichTextEditor
+                                content={newComment}
+                                onChange={setNewComment}
                                 placeholder="Add a note..."
-                                className="w-full rounded-2xl border border-white/5 bg-black/20 p-4 text-sm text-white focus:border-dnd-gold/50 focus:outline-none placeholder-dnd-text/20 transition-all"
-                                rows={3}
-                            ></textarea>
+                                isSmall={true}
+                                className="w-full"
+                            />
                             <div className="flex justify-between items-center">
                                  <label className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 cursor-pointer select-none group">
                                     <div className={cn("w-4 h-4 rounded border border-white/10 flex items-center justify-center transition-all", isPrivateComment ? "bg-dnd-gold border-dnd-gold" : "bg-black/20 group-hover:border-dnd-gold/50")}>

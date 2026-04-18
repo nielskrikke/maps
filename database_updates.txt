@@ -21,3 +21,6 @@ USING (
 
 -- 4. Ensure Select policy exists (DMs read all, Players read all - usually fine for profiles)
 CREATE POLICY "Enable read access for all users" ON public.users FOR SELECT USING (true);
+
+-- 5. Add character_json column to characters table
+ALTER TABLE public.characters ADD COLUMN IF NOT EXISTS character_json jsonb;

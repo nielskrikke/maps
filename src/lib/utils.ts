@@ -38,3 +38,7 @@ export function cn(...inputs: ClassValue[]) {
   }
   return str;
 }
+
+export function stripHtml(html: string) {
+  return html.replace(/<[^>]*>?/gm, '');
+}
