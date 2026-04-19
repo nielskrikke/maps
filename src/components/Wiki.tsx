@@ -5,6 +5,7 @@ import { useAuth } from '../App';
 import { Map as MapType, Pin, Character, Comment, WikiPage } from '../types';
 import { Icon } from './Icons';
 import { RichTextEditor } from './RichTextEditor';
+import { ConfirmModal } from './Modals';
 import { supabase } from '../services/supabase';
 import { cn, stripHtml } from '../lib/utils';
 
@@ -41,7 +42,7 @@ const Wiki: React.FC<WikiProps> = ({
 }) => {
     const { 
         maps, pins, pinTypes, characters, wikiPages, isPlayerView,
-        expandedWikiSection, setExpandedWikiSection 
+        expandedWikiSection, setExpandedWikiSection, removeLocalItem, setError 
     } = useAppContext();
     const { user } = useAuth();
     const isDM = user?.profile.role === 'DM';
@@ -98,6 +99,19 @@ const Wiki: React.FC<WikiProps> = ({
         if (!error) {
             setCharacterComments(prev => prev.filter(c => c.id !== commentId));
         }
+    };
+
+    // Lightbox State
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+    const [zoomLevel, setZoomLevel] = useState(1);
+
+    const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.5, 3));
+    const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.5, 1));
+    const resetZoom = () => setZoomLevel(1);
+
+    const closeLightbox = () => {
+        setLightboxImage(null);
+        resetZoom();
     };
 
     // Get pins for the currently active map (to display in content area)
@@ -191,7 +205,7 @@ const Wiki: React.FC<WikiProps> = ({
                         const isVisible = section.is_visible ?? (section.type !== 'secret' && section.type !== 'encounter');
                         if (!isVisible && !canSeeSecrets) return null;
                         
-                        const isFullWidth = section.type === 'text' || section.type === 'list' || section.type === 'inventory';
+                        const isFullWidth = section.type === 'image' || section.type === 'text' || section.type === 'list' || section.type === 'inventory' || section.type === 'split' || section.type === 'gallery' || section.type === 'timeline' || section.type === 'quote' || section.type === 'attribute_list';
                         
                         return (
                             <div key={idx} className={cn(
@@ -216,7 +230,7 @@ const Wiki: React.FC<WikiProps> = ({
                                 <div className="p-6">
                                     {section.type === 'text' && (
                                         <div 
-                                            className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
+                                            className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none text-lg"
                                             dangerouslySetInnerHTML={{ __html: section.content || '' }}
                                         />
                                     )}
@@ -233,25 +247,6 @@ const Wiki: React.FC<WikiProps> = ({
                                                     className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
                                                     dangerouslySetInnerHTML={{ __html: section.content }}
                                                 />
-                                            )}
-                                            {section.json_data && (
-                                                <button 
-                                                    onClick={() => {
-                                                        const blob = new Blob([section.json_data!], { type: 'application/json' });
-                                                        const url = URL.createObjectURL(blob);
-                                                        const a = document.createElement('a');
-                                                        a.href = url;
-                                                        a.download = `${section.title.replace(/\s+/g, '_').toLowerCase() || 'encounter'}.json`;
-                                                        document.body.appendChild(a);
-                                                        a.click();
-                                                        document.body.removeChild(a);
-                                                        URL.revokeObjectURL(url);
-                                                    }}
-                                                    className="flex items-center gap-2 bg-dnd-gold/10 hover:bg-dnd-gold/20 text-dnd-gold px-4 py-2 rounded-xl border border-dnd-gold/20 transition-all text-xs font-bold uppercase tracking-widest"
-                                                >
-                                                    <Icon name="download" className="w-4 h-4" />
-                                                    Download Encounter
-                                                </button>
                                             )}
                                         </div>
                                     )}
@@ -283,7 +278,85 @@ const Wiki: React.FC<WikiProps> = ({
                                         </>
                                     )}
                                     {section.type === 'image' && section.image_url && (
-                                        <img src={section.image_url} alt={section.title} className="w-full h-auto rounded-xl shadow-2xl border border-white/10" referrerPolicy="no-referrer" />
+                                        <div 
+                                            className="cursor-zoom-in group relative"
+                                            onClick={() => setLightboxImage(section.image_url!)}
+                                        >
+                                            <img src={section.image_url} alt={section.title} className="w-full h-auto rounded-xl shadow-2xl border border-white/10" referrerPolicy="no-referrer" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
+                                                <Icon name="search" className="w-8 h-8 text-white" />
+                                            </div>
+                                        </div>
+                                    )}
+                                    {section.type === 'split' && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                                            <div 
+                                                className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none text-lg"
+                                                dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                                            />
+                                            {section.image_url && (
+                                                <img src={section.image_url} alt={section.title} className="w-full h-auto rounded-xl shadow-2xl border border-white/10" referrerPolicy="no-referrer" />
+                                            )}
+                                        </div>
+                                    )}
+                                    {section.type === 'gallery' && (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                                            {section.gallery_images?.map((img, i) => (
+                                                <div 
+                                                    key={i} 
+                                                    className="aspect-square rounded-xl overflow-hidden border border-white/5 group relative shadow-lg cursor-zoom-in"
+                                                    onClick={() => setLightboxImage(img)}
+                                                >
+                                                    <img src={img} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <Icon name="search" className="w-4 h-4 text-white" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {section.type === 'timeline' && (
+                                        <div className="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-white/5">
+                                            {section.timeline_items?.map((item, i) => (
+                                                <div key={i} className="relative pl-10">
+                                                    <div className="absolute left-0 top-1.5 w-6 h-6 rounded-full bg-dnd-dark border-2 border-dnd-gold flex items-center justify-center shadow-[0_0_10px_rgba(212,175,55,0.3)] z-10">
+                                                        <div className="w-2 h-2 rounded-full bg-dnd-gold" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-dnd-gold font-bold text-xs uppercase tracking-widest bg-dnd-gold/10 px-2 py-1 rounded border border-dnd-gold/20 leading-none inline-block mb-3">{item.date}</span>
+                                                        <div 
+                                                            className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none text-sm"
+                                                            dangerouslySetInnerHTML={{ __html: item.content }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {section.type === 'quote' && (
+                                        <div className="relative p-10 bg-black/20 rounded-2xl border-l-4 border-dnd-gold italic font-serif">
+                                            <Icon name="quote" className="absolute top-4 left-4 w-12 h-12 text-dnd-gold/10 pointer-events-none" />
+                                            <div 
+                                                className="text-2xl text-white/80 leading-relaxed relative z-10 rich-text-content max-w-none"
+                                                dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                                            />
+                                            {section.quote_author && (
+                                                <div className="mt-6 flex items-center gap-3">
+                                                    <div className="w-8 h-[1px] bg-dnd-gold/30" />
+                                                    <span className="text-dnd-gold font-bold uppercase tracking-widest text-xs">{section.quote_author}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {section.type === 'attribute_list' && (
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                                            {section.stats?.map((stat, i) => (
+                                                <div key={i} className="flex flex-col gap-1 border-l border-white/5 pl-4 py-1 hover:border-dnd-gold/50 transition-colors group">
+                                                    <span className="text-[10px] uppercase tracking-widest text-dnd-text/40 font-bold group-hover:text-dnd-gold/60 transition-colors">{stat.label}</span>
+                                                    <span className="text-white font-serif text-lg font-bold group-hover:text-dnd-gold transition-colors">{stat.value}</span>
+                                                </div>
+                                            ))}
+                                        </div>
                                     )}
                                     {section.type === 'inventory' && (
                                         <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/20">
@@ -529,7 +602,7 @@ const Wiki: React.FC<WikiProps> = ({
                         </div>
                     </div>
 
-                    {page.content && (
+                    {page.content && stripHtml(page.content).trim().length > 0 && (
                          <div 
                             className="rich-text-content max-w-none text-dnd-text/80 text-xl leading-relaxed glass-panel p-8 rounded-2xl border border-white/5 shadow-2xl font-medium"
                             dangerouslySetInnerHTML={{ __html: page.content }}
@@ -593,7 +666,7 @@ const Wiki: React.FC<WikiProps> = ({
                     {page.sections?.map((section, idx) => {
                         const isVisible = section.is_visible ?? (section.type !== 'secret' && section.type !== 'encounter');
                         if (!isVisible && !canSeeSecrets) return null;
-                        const isFullWidth = section.type === 'text' || section.type === 'list' || section.type === 'inventory';
+                        const isFullWidth = section.type === 'image' || section.type === 'text' || section.type === 'list' || section.type === 'inventory' || section.type === 'split' || section.type === 'gallery' || section.type === 'timeline' || section.type === 'quote' || section.type === 'attribute_list';
                         
                         return (
                             <div key={idx} className={cn(
@@ -665,7 +738,102 @@ const Wiki: React.FC<WikiProps> = ({
                                         </ul>
                                     )}
                                     {section.type === 'image' && section.image_url && (
-                                        <img src={section.image_url} alt={section.title} className="w-full h-auto rounded-xl shadow-2xl border border-white/10" referrerPolicy="no-referrer" />
+                                        <div 
+                                            className="cursor-zoom-in group relative"
+                                            onClick={() => setLightboxImage(section.image_url!)}
+                                        >
+                                            <img src={section.image_url} alt={section.title} className="w-full h-auto rounded-xl shadow-2xl border border-white/10" referrerPolicy="no-referrer" />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
+                                                <Icon name="search" className="w-8 h-8 text-white" />
+                                            </div>
+                                        </div>
+                                    )}
+                                    {section.type === 'split' && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                                            <div 
+                                                className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
+                                                dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                                            />
+                                            {section.image_url && (
+                                                <img src={section.image_url} alt={section.title} className="w-full h-auto rounded-xl shadow-2xl border border-white/10" referrerPolicy="no-referrer" />
+                                            )}
+                                        </div>
+                                    )}
+                                    {section.type === 'gallery' && (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                                            {section.gallery_images?.map((img, i) => (
+                                                <div 
+                                                    key={i} 
+                                                    className="aspect-square rounded-xl overflow-hidden border border-white/5 group relative shadow-lg cursor-zoom-in"
+                                                    onClick={() => setLightboxImage(img)}
+                                                >
+                                                    <img src={img} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                                                        <Icon name="search" className="w-4 h-4 text-white" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {section.type === 'timeline' && (
+                                        <div className="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-white/5">
+                                            {section.timeline_items?.map((item, i) => (
+                                                <div key={i} className="relative pl-10">
+                                                    <div className="absolute left-0 top-1.5 w-6 h-6 rounded-full bg-dnd-dark border-2 border-dnd-gold flex items-center justify-center shadow-[0_0_10px_rgba(212,175,55,0.3)] z-10">
+                                                        <div className="w-2 h-2 rounded-full bg-dnd-gold shadow-[0_0_5px_rgba(212,175,55,1)]" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-dnd-gold font-bold text-xs uppercase tracking-widest bg-dnd-gold/10 px-2 py-1 rounded border border-dnd-gold/20 leading-none inline-block mb-3">{item.date}</span>
+                                                        <div 
+                                                            className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none text-sm"
+                                                            dangerouslySetInnerHTML={{ __html: item.content }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {section.type === 'quote' && (
+                                        <div className="relative p-10 bg-black/20 rounded-2xl border-l-4 border-dnd-gold italic">
+                                            <Icon name="quote" className="absolute top-4 left-4 w-12 h-12 text-dnd-gold/10 pointer-events-none" />
+                                            <div 
+                                                className="text-xl text-dnd-text/80 leading-relaxed relative z-10 rich-text-content max-w-none"
+                                                dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                                            />
+                                            {section.quote_author && (
+                                                <div className="mt-6 flex items-center gap-3">
+                                                    <div className="w-8 h-[1px] bg-dnd-gold/30" />
+                                                    <span className="text-dnd-gold font-bold uppercase tracking-widest text-xs">{section.quote_author}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {section.type === 'attribute_list' && (
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                                            {section.stats?.map((stat, i) => (
+                                                <div key={i} className="flex flex-col gap-1 border-l border-white/5 pl-4 py-1 hover:border-dnd-gold/50 transition-colors group">
+                                                    <span className="text-[10px] uppercase tracking-widest text-dnd-text/40 font-bold group-hover:text-dnd-gold/60 transition-colors">{stat.label}</span>
+                                                    <span className="text-white font-serif text-lg font-bold group-hover:text-dnd-gold transition-colors">{stat.value}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {section.type === 'statblock' && (
+                                        <div className="space-y-6">
+                                            <div 
+                                                className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
+                                                dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                                            />
+                                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
+                                                {section.stats?.map((stat, i) => (
+                                                    <div key={i} className="flex flex-col items-center justify-center p-3 bg-black/30 rounded-xl border border-white/5 shadow-lg relative overflow-hidden group">
+                                                        <div className="absolute inset-0 bg-dnd-gold/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                        <span className="text-[10px] uppercase tracking-tighter text-dnd-gold font-bold relative z-10">{stat.label}</span>
+                                                        <span className="text-white font-serif text-2xl font-bold relative z-10">{stat.value}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -919,8 +1087,63 @@ const Wiki: React.FC<WikiProps> = ({
                         )}
                     </div>
                 </div>
+
+                {/* Lightbox */}
+                {lightboxImage && (
+                    <div 
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm"
+                        onClick={closeLightbox}
+                    >
+                        <div className="absolute top-6 right-6 flex items-center gap-4 z-[110]">
+                            <div className="flex bg-black/40 backdrop-blur-md rounded-xl border border-white/10 p-1 shadow-2xl" onClick={e => e.stopPropagation()}>
+                                <button 
+                                    onClick={handleZoomOut}
+                                    className="p-2 text-white/60 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                                    title="Zoom Out"
+                                >
+                                    <Icon name="minus" className="w-5 h-5" />
+                                </button>
+                                <button 
+                                    onClick={resetZoom}
+                                    className="px-3 text-[10px] font-bold uppercase tracking-widest text-dnd-gold hover:text-white transition-colors"
+                                >
+                                    {Math.round(zoomLevel * 100)}%
+                                </button>
+                                <button 
+                                    onClick={handleZoomIn}
+                                    className="p-2 text-white/60 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                                    title="Zoom In"
+                                >
+                                    <Icon name="plus" className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <button 
+                                onClick={closeLightbox}
+                                className="bg-black/40 backdrop-blur-md text-white/60 hover:text-white p-2.5 rounded-xl border border-white/10 transition-all hover:scale-110"
+                            >
+                                <Icon name="close" className="w-6 h-6" />
+                            </button>
+                        </div>
+                        
+                        <div 
+                            className="max-w-[90vw] max-h-[90vh] overflow-auto custom-scrollbar flex items-center justify-center p-10"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <img 
+                                src={lightboxImage} 
+                                alt="Full View" 
+                                className="transition-transform duration-300 ease-out origin-center cursor-default select-none shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+                                style={{ 
+                                    transform: `scale(${zoomLevel})`,
+                                    transition: zoomLevel === 1 ? 'transform 0.3s ease-out' : 'none'
+                                 }}
+                                referrerPolicy="no-referrer"
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
-        );
-    };
+    );
+};
 
 export default Wiki;

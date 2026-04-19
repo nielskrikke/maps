@@ -8,7 +8,8 @@ export type IconName =
   | 'chevron-down' | 'chevron-right' | 'plus' | 'minus' | 'hand' | 'chest' 
   | 'backpack' | 'search' | 'book' | 'scroll' | 'compass' | 'external' 
   | 'settings' | 'view_apps' | 'visibility' | 'visibility_off' | 'check'
-  | 'bold' | 'italic' | 'underline' | 'list' | 'list-ordered' | 'heading1' | 'heading2' | 'heading3' | 'type';
+  | 'bold' | 'italic' | 'underline' | 'list' | 'list-ordered' | 'heading1' | 'heading2' | 'heading3' | 'type'
+  | 'quote' | 'calendar' | 'music' | 'info' | 'alert-triangle' | 'volume2';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
   name: IconName | string;
@@ -61,6 +62,12 @@ const iconPaths: Record<string, React.ReactNode> = {
   heading2: <><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1"/></>,
   heading3: <><path d="M4 12h8"/><path d="M4 18V6"/><path d="M12 18V6"/><path d="M17.5 10.5c.5 0 1 .5 1 1.5s-1.5 1.5-1.5 1.5 1.5.5 1.5 1.5-1 1.5-1.5 1.5"/></>,
   type: <><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></>,
+  quote: <path d="M3 21c3 0 7-1 7-8V5c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h4c0 3.5-3 5.5-3 5.5ZM17 21c3 0 7-1 7-8V5c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h4c0 3.5-3 5.5-3 5.5Z" />,
+  calendar: <><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></>,
+  music: <><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></>,
+  info: <><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="16" y2="12"/><line x1="12" x2="12.01" y1="8" y2="8"/></>,
+  'alert-triangle': <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3ZM12 9v4m0 4h.01" />,
+  volume2: <><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></>,
 };
 
 export const Icon: React.FC<IconProps> = ({ name, title, className, ...props }) => {

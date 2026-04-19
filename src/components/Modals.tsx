@@ -73,6 +73,51 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
     );
 };
 
+// Confirmation Modal
+interface ConfirmModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    isDanger?: boolean;
+}
+
+export const ConfirmModal: React.FC<ConfirmModalProps> = ({ 
+    isOpen, onClose, onConfirm, title, message, 
+    confirmLabel = 'Confirm', cancelLabel = 'Cancel', isDanger = true 
+}) => {
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidthClass="max-w-md">
+            <div className="space-y-6">
+                <p className="text-dnd-text/60 leading-relaxed">{message}</p>
+                <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+                    <button 
+                        onClick={onClose}
+                        className="px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold transition-all text-xs uppercase tracking-widest outline-none"
+                    >
+                        {cancelLabel}
+                    </button>
+                    <button 
+                        onClick={() => {
+                            onConfirm();
+                            onClose();
+                        }}
+                        className={cn(
+                            "px-6 py-3 rounded-xl font-bold transition-all text-xs uppercase tracking-widest shadow-xl outline-none",
+                            isDanger ? "bg-dnd-red text-white shadow-dnd-red/20 hover:brightness-110" : "bg-dnd-gold text-white shadow-dnd-gold/20 hover:brightness-110"
+                        )}
+                    >
+                        {confirmLabel}
+                    </button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
 // --- DM TOOLS MODAL ---
 interface DMToolsModalProps {
     isOpen: boolean;
@@ -1274,13 +1319,16 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
         setSections(prev => [...prev, {
             id,
             type,
-            title: type === 'secret' ? 'Secret Note' : type.charAt(0).toUpperCase() + type.slice(1),
+            title: type === 'secret' ? 'Secret Note' : type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '),
             content: '',
             is_visible: type !== 'secret' && type !== 'encounter',
             list_items: type === 'list' ? [] : undefined,
-            stats: type === 'statblock' ? [] : undefined,
+            stats: (type === 'statblock' || type === 'attribute_list') ? [] : undefined,
             items: type === 'inventory' ? [] : undefined,
-            image_url: type === 'image' ? '' : undefined
+            image_url: (type === 'image' || type === 'split') ? '' : undefined,
+            gallery_images: type === 'gallery' ? [] : undefined,
+            timeline_items: type === 'timeline' ? [] : undefined,
+            quote_author: type === 'quote' ? '' : undefined
         }]);
     };
 
@@ -1462,7 +1510,7 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Sections</h3>
                         <div className="flex flex-wrap gap-2">
-                             {(['text', 'image', 'list', 'statblock', 'inventory', 'secret', 'encounter'] as PinSectionType[]).map(type => (
+                             {(['text', 'image', 'split', 'gallery', 'timeline', 'quote', 'attribute_list', 'list', 'statblock', 'inventory', 'secret', 'encounter'] as PinSectionType[]).map(type => (
                                  <button 
                                     key={type} 
                                     type="button" 
@@ -1660,6 +1708,164 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                                     </div>
                                 )}
 
+                                {section.type === 'attribute_list' && (
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {section.stats?.map((stat, i) => (
+                                                <div key={i} className="flex gap-2 group/stat">
+                                                    <input 
+                                                        type="text" 
+                                                        value={stat.label} 
+                                                        onChange={e => {
+                                                            const newStats = [...(section.stats || [])]; newStats[i].label = e.target.value; updateSection(section.id, {stats: newStats});
+                                                        }} 
+                                                        className="w-1/3 bg-dnd-gold/5 rounded-xl p-2 text-[10px] text-dnd-gold font-bold uppercase tracking-widest border border-dnd-gold/20 focus:outline-none focus:border-dnd-gold/50 transition-all" 
+                                                        placeholder="Label"
+                                                    />
+                                                    <input 
+                                                        type="text" 
+                                                        value={stat.value} 
+                                                        onChange={e => {
+                                                            const newStats = [...(section.stats || [])]; newStats[i].value = e.target.value; updateSection(section.id, {stats: newStats});
+                                                        }} 
+                                                        className="flex-1 bg-black/20 rounded-xl p-2 text-xs text-white font-bold border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all" 
+                                                        placeholder="Value"
+                                                    />
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => {
+                                                            const newStats = [...(section.stats || [])]; newStats.splice(i, 1); updateSection(section.id, {stats: newStats});
+                                                        }} 
+                                                        className="text-dnd-text/20 hover:text-dnd-red px-2 transition-colors"
+                                                    >
+                                                        &times;
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => updateSection(section.id, {stats: [...(section.stats || []), {label: '', value: ''}]})} 
+                                            className="text-[10px] text-dnd-gold hover:brightness-110 font-bold uppercase tracking-widest flex items-center gap-2"
+                                        >
+                                            <Icon name="plus" className="w-3 h-3" />
+                                            Add Attribute
+                                        </button>
+                                    </div>
+                                )}
+
+                                {section.type === 'split' && (
+                                    <div className="space-y-4">
+                                        <RichTextEditor 
+                                            content={section.content || ''} 
+                                            onChange={val => updateSection(section.id, {content: val})} 
+                                            placeholder="Text content..."
+                                            className="w-full"
+                                        />
+                                        <div className="flex items-center gap-4">
+                                            <input 
+                                                type="text" 
+                                                value={section.image_url || ''} 
+                                                onChange={e => updateSection(section.id, {image_url: e.target.value})} 
+                                                className="flex-1 bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all" 
+                                                placeholder="Image URL..."
+                                            />
+                                            <label className="cursor-pointer p-3 bg-white/5 rounded-xl hover:bg-white/10 border border-white/5 transition-all shadow-md group">
+                                                <Icon name="upload" className="w-4 h-4 text-dnd-gold group-hover:scale-110 transition-transform"/>
+                                                <input type="file" className="hidden" accept="image/*" onChange={async e => {
+                                                    if(e.target.files?.[0] && user) {
+                                                        const file = e.target.files[0];
+                                                        const fileExt = file.name.split('.').pop();
+                                                        const fileName = `split_${Date.now()}.${fileExt}`;
+                                                        try {
+                                                            const url = await uploadFile('assets', `${user.id}/${fileName}`, file);
+                                                            updateSection(section.id, {image_url: url});
+                                                        } catch (err) {
+                                                            setError({ message: "Upload failed", details: err });
+                                                        }
+                                                    }
+                                                }} />
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {section.type === 'gallery' && (
+                                    <div className="space-y-4">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Gallery Images (One per line)</p>
+                                        <textarea 
+                                            value={section.gallery_images?.join('\n') || ''} 
+                                            onChange={e => updateSection(section.id, {gallery_images: e.target.value.split('\n')})} 
+                                            rows={4} 
+                                            className="w-full bg-black/20 rounded-2xl p-4 text-sm text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all custom-scrollbar" 
+                                            placeholder="https://...&#10;https://..."
+                                        />
+                                    </div>
+                                )}
+
+                                {section.type === 'timeline' && (
+                                    <div className="space-y-4">
+                                        <div className="space-y-4">
+                                            {section.timeline_items?.map((item, i) => (
+                                                <div key={i} className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-3 relative group/item">
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => {
+                                                            const newItems = [...(section.timeline_items || [])]; newItems.splice(i, 1); updateSection(section.id, {timeline_items: newItems});
+                                                        }} 
+                                                        className="absolute top-2 right-2 text-dnd-text/20 hover:text-dnd-red transition-colors"
+                                                    >
+                                                        <Icon name="close" className="w-4 h-4" />
+                                                    </button>
+                                                    <input 
+                                                        type="text" 
+                                                        value={item.date} 
+                                                        onChange={e => {
+                                                            const newItems = [...(section.timeline_items || [])]; newItems[i].date = e.target.value; updateSection(section.id, {timeline_items: newItems});
+                                                        }} 
+                                                        className="w-full bg-transparent border-b border-white/5 text-dnd-gold font-bold text-xs uppercase tracking-widest focus:outline-none focus:border-dnd-gold/50 pb-1"
+                                                        placeholder="Date/Era"
+                                                    />
+                                                    <RichTextEditor 
+                                                        content={item.content} 
+                                                        onChange={val => {
+                                                            const newItems = [...(section.timeline_items || [])]; newItems[i].content = val; updateSection(section.id, {timeline_items: newItems});
+                                                        }} 
+                                                        placeholder="Event description..."
+                                                        className="w-full"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => updateSection(section.id, {timeline_items: [...(section.timeline_items || []), {date: '', content: ''}]})} 
+                                            className="text-[10px] text-dnd-gold hover:brightness-110 font-bold uppercase tracking-widest flex items-center gap-2"
+                                        >
+                                            <Icon name="plus" className="w-3 h-3" />
+                                            Add Timeline Entry
+                                        </button>
+                                    </div>
+                                )}
+
+                                {section.type === 'quote' && (
+                                    <div className="space-y-4">
+                                        <RichTextEditor 
+                                            content={section.content || ''} 
+                                            onChange={val => updateSection(section.id, {content: val})} 
+                                            placeholder="The spoken word..."
+                                            className="w-full"
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={section.quote_author || ''} 
+                                            onChange={e => updateSection(section.id, {quote_author: e.target.value})} 
+                                            className="w-full bg-black/20 rounded-xl p-3 text-xs text-dnd-gold font-bold border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all font-serif italic" 
+                                            placeholder="— Author"
+                                        />
+                                    </div>
+                                )}
+
                                 {section.type === 'inventory' && (
                                     <div className="space-y-6">
                                         <div className="relative">
@@ -1768,6 +1974,7 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
     const [sections, setSections] = useState<PinSection[]>([]);
     const [isVisible, setIsVisible] = useState(true);
     const [loading, setLoading] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         if (pinTypes.length > 0 && !typeId) {
@@ -1866,16 +2073,18 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
         }
     };
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = async () => {
+        if (!editingPage?.id) return;
         setLoading(true);
-        const { error } = await supabase.from('wiki_pages').delete().eq('id', id);
+        const { error } = await supabase.from('wiki_pages').delete().eq('id', editingPage.id);
         if (!error) {
-            removeLocalItem('wikipage', id);
+            removeLocalItem('wikipage', editingPage.id);
             resetForm();
         } else {
             setError({ message: "Error deleting wiki page", details: error });
         }
         setLoading(false);
+        setIsDeleting(false);
     };
 
     const addSection = (type: PinSectionType) => {
@@ -1883,13 +2092,16 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
         setSections(prev => [...prev, {
             id,
             type,
-            title: type.charAt(0).toUpperCase() + type.slice(1),
+            title: type === 'secret' ? 'Secret Note' : type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' '),
             content: '',
             is_visible: type !== 'secret' && type !== 'encounter',
             list_items: type === 'list' ? [] : undefined,
-            stats: type === 'statblock' ? [] : undefined,
+            stats: (type === 'statblock' || type === 'attribute_list') ? [] : undefined,
             items: type === 'inventory' ? [] : undefined,
-            image_url: type === 'image' ? '' : undefined
+            image_url: (type === 'image' || type === 'split') ? '' : undefined,
+            gallery_images: type === 'gallery' ? [] : undefined,
+            timeline_items: type === 'timeline' ? [] : undefined,
+            quote_author: type === 'quote' ? '' : undefined
         }]);
     };
 
@@ -1911,7 +2123,6 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                         <div className="text-[10px] text-dnd-gold/60 uppercase tracking-widest font-bold">{p.pin_types?.name}</div>
                                     </div>
                                 </div>
-                                <button onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }} className="p-2 text-dnd-text/20 hover:text-dnd-red transition-colors opacity-0 group-hover:opacity-100"><Icon name="trash" className="w-4 h-4"/></button>
                             </div>
                         ))}
                     </div>
@@ -1986,8 +2197,8 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                         <div className="space-y-6 pt-8 border-t border-white/5">
                             <div className="flex justify-between items-center">
                                 <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Sections</h3>
-                                <div className="flex gap-2">
-                                    {(['text', 'image', 'list', 'statblock', 'secret', 'encounter'] as PinSectionType[]).map(type => (
+                                <div className="flex flex-wrap gap-2">
+                                    {(['text', 'image', 'split', 'gallery', 'timeline', 'quote', 'attribute_list', 'list', 'statblock', 'secret', 'encounter'] as PinSectionType[]).map(type => (
                                         <button 
                                             key={type} 
                                             type="button" 
@@ -2165,16 +2376,149 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                                 </div>
                                             </div>
                                         )}
+
+                                        {section.type === 'attribute_list' && (
+                                            <div className="space-y-3">
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <input type="text" id={`attr-label-${section.id}`} placeholder="Label" className="bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50" />
+                                                    <input type="text" id={`attr-value-${section.id}`} placeholder="Value" className="bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50" />
+                                                </div>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const label = (document.getElementById(`attr-label-${section.id}`) as HTMLInputElement).value;
+                                                        const value = (document.getElementById(`attr-value-${section.id}`) as HTMLInputElement).value;
+                                                        if (label && value) {
+                                                            updateSection(section.id, (s) => ({ stats: [...(s.stats || []), {label, value}] }));
+                                                            (document.getElementById(`attr-label-${section.id}`) as HTMLInputElement).value = '';
+                                                            (document.getElementById(`attr-value-${section.id}`) as HTMLInputElement).value = '';
+                                                        }
+                                                    }}
+                                                    className="w-full py-2 bg-dnd-gold/10 hover:bg-dnd-gold/20 text-dnd-gold rounded-xl text-[10px] font-bold uppercase tracking-widest border border-dnd-gold/20 transition-all"
+                                                >
+                                                    Add Attribute
+                                                </button>
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                    {section.stats?.map((stat, i) => (
+                                                        <div key={i} className="bg-black/20 p-3 rounded-xl border border-white/5 relative group/stat">
+                                                            <div className="text-[8px] uppercase tracking-widest text-dnd-gold/60 font-bold">{stat.label}</div>
+                                                            <div className="text-sm text-white font-bold">{stat.value}</div>
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => updateSection(section.id, (s) => ({ stats: s.stats?.filter((_, j) => i !== j) }))}
+                                                                className="absolute top-1 right-1 text-dnd-text/20 hover:text-dnd-red opacity-0 group-hover/stat:opacity-100 transition-all"
+                                                            >
+                                                                <Icon name="close" className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {section.type === 'split' && (
+                                            <div className="space-y-4">
+                                                <RichTextEditor 
+                                                    content={section.content || ''} 
+                                                    onChange={val => updateSection(section.id, {content: val})} 
+                                                    placeholder="Text content..."
+                                                    className="w-full"
+                                                />
+                                                <input 
+                                                    type="text" 
+                                                    value={section.image_url} 
+                                                    onChange={e => updateSection(section.id, {image_url: e.target.value})} 
+                                                    className="w-full bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all" 
+                                                    placeholder="Image URL..."
+                                                />
+                                            </div>
+                                        )}
+
+                                        {section.type === 'gallery' && (
+                                            <div className="space-y-4">
+                                                <p className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Gallery Images (One per line)</p>
+                                                <textarea 
+                                                    value={section.gallery_images?.join('\n') || ''} 
+                                                    onChange={e => updateSection(section.id, {gallery_images: e.target.value.split('\n')})} 
+                                                    rows={4} 
+                                                    className="w-full bg-black/20 rounded-2xl p-4 text-sm text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all custom-scrollbar" 
+                                                    placeholder="https://...&#10;https://..."
+                                                />
+                                            </div>
+                                        )}
+
+                                        {section.type === 'timeline' && (
+                                            <div className="space-y-4">
+                                                <div className="space-y-4">
+                                                    {section.timeline_items?.map((item, i) => (
+                                                        <div key={i} className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-3 relative group/item">
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => {
+                                                                    const newItems = [...(section.timeline_items || [])]; newItems.splice(i, 1); updateSection(section.id, {timeline_items: newItems});
+                                                                }} 
+                                                                className="absolute top-2 right-2 text-dnd-text/20 hover:text-dnd-red transition-colors"
+                                                            >
+                                                                <Icon name="close" className="w-4 h-4" />
+                                                            </button>
+                                                            <input 
+                                                                type="text" 
+                                                                value={item.date} 
+                                                                onChange={e => {
+                                                                    const newItems = [...(section.timeline_items || [])]; newItems[i].date = e.target.value; updateSection(section.id, {timeline_items: newItems});
+                                                                }} 
+                                                                className="w-full bg-transparent border-b border-white/5 text-dnd-gold font-bold text-xs uppercase tracking-widest focus:outline-none focus:border-dnd-gold/50 pb-1"
+                                                                placeholder="Date/Era"
+                                                            />
+                                                            <RichTextEditor 
+                                                                content={item.content} 
+                                                                onChange={val => {
+                                                                    const newItems = [...(section.timeline_items || [])]; newItems[i].content = val; updateSection(section.id, {timeline_items: newItems});
+                                                                }} 
+                                                                placeholder="Event description..."
+                                                                className="w-full"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => updateSection(section.id, {timeline_items: [...(section.timeline_items || []), {date: '', content: ''}]})} 
+                                                    className="text-[10px] text-dnd-gold hover:brightness-110 font-bold uppercase tracking-widest flex items-center gap-2"
+                                                >
+                                                    <Icon name="plus" className="w-3 h-3" />
+                                                    Add Timeline Entry
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {section.type === 'quote' && (
+                                            <div className="space-y-4">
+                                                <RichTextEditor 
+                                                    content={section.content || ''} 
+                                                    onChange={val => updateSection(section.id, {content: val})} 
+                                                    placeholder="The spoken word..."
+                                                    className="w-full"
+                                                />
+                                                <input 
+                                                    type="text" 
+                                                    value={section.quote_author || ''} 
+                                                    onChange={e => updateSection(section.id, {quote_author: e.target.value})} 
+                                                    className="w-full bg-black/20 rounded-xl p-3 text-xs text-dnd-gold font-bold border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all font-serif italic" 
+                                                    placeholder="— Author"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
                         </div>
 
                         <div className="flex justify-between items-center pt-8 border-t border-white/5">
-                             {isEditing && (
+                             {isEditing && editingPage?.id && (
                                  <button 
                                     type="button" 
-                                    onClick={() => handleDelete(editingPage!.id!)} 
+                                    onClick={() => setIsDeleting(true)} 
                                     className="flex items-center gap-2 text-dnd-red hover:brightness-125 transition-all font-bold uppercase tracking-widest text-xs"
                                 >
                                     <Icon name="trash" className="w-4 h-4" />
@@ -2186,6 +2530,16 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                              </button>
                         </div>
                     </form>
+
+                    <ConfirmModal 
+                        isOpen={isDeleting}
+                        onClose={() => setIsDeleting(false)}
+                        onConfirm={handleDelete}
+                        title="Delete Wiki Page"
+                        message={`Are you sure you want to delete "${title}"? This action cannot be undone and will remove all nested information.`}
+                        confirmLabel="Delete Page"
+                        isDanger={true}
+                    />
                 </div>
             </div>
         </Modal>

@@ -33,6 +33,19 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
     const [isSummoning, setIsSummoning] = useState(false);
     const [viewingCharacter, setViewingCharacter] = useState<Character | null>(null);
 
+    // Lightbox state
+    const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+    const [zoomLevel, setZoomLevel] = useState(1);
+
+    const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.5, 3));
+    const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.5, 1));
+    const resetZoom = () => setZoomLevel(1);
+
+    const closeLightbox = () => {
+        setLightboxImage(null);
+        resetZoom();
+    };
+
     // Derived: Characters present at this pin
     const presentCharacters = pin ? characters.filter(c => c.current_pin_id === pin.id) : [];
 
@@ -211,11 +224,99 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                     <div key={section.id || index} className="bg-black/15 rounded-2xl p-3 border border-white/5 overflow-hidden">
                         {section.title && <h3 className="font-sans text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-3 px-1">{section.title}</h3>}
                         {section.image_url ? (
-                            <img src={section.image_url} alt={section.title || 'Pin Image'} className="w-full h-auto rounded-xl shadow-2xl border border-white/10" referrerPolicy="no-referrer" />
+                            <div 
+                                className="cursor-zoom-in group relative"
+                                onClick={() => setLightboxImage(section.image_url!)}
+                            >
+                                <img src={section.image_url} alt={section.title || 'Pin Image'} className="w-full h-auto rounded-xl shadow-2xl border border-white/10" referrerPolicy="no-referrer" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
+                                    <Icon name="search" className="w-6 h-6 text-white" />
+                                </div>
+                            </div>
                         ) : (
                             <div className="w-full h-40 flex items-center justify-center bg-black/20 rounded-xl text-dnd-text/20 italic">No image provided</div>
                         )}
                         {section.content && <p className="text-sm text-dnd-text/60 mt-3 px-1 pb-1 italic leading-relaxed">{section.content}</p>}
+                    </div>
+                );
+            case 'split':
+                return (
+                    <div key={section.id || index} className="bg-black/15 rounded-2xl border border-white/5 overflow-hidden">
+                        <h3 className="bg-black/30 font-sans text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-4 py-2.5 border-b border-white/5">{section.title}</h3>
+                        <div className="p-5 space-y-4">
+                            {section.image_url && (
+                                <img src={section.image_url} alt={section.title} className="w-full h-auto rounded-xl shadow-lg border border-white/10" referrerPolicy="no-referrer" />
+                            )}
+                            <div 
+                                className="text-sm text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
+                                dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                            />
+                        </div>
+                    </div>
+                );
+            case 'gallery':
+                return (
+                    <div key={section.id || index} className="bg-black/15 rounded-2xl border border-white/5 overflow-hidden">
+                        <h3 className="bg-black/30 font-sans text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-4 py-2.5 border-b border-white/5">{section.title}</h3>
+                        <div className="p-3 grid grid-cols-2 gap-2">
+                            {section.gallery_images?.map((img, i) => (
+                                <div 
+                                    key={i} 
+                                    className="aspect-square rounded-lg overflow-hidden border border-white/5 shadow-md cursor-zoom-in group relative"
+                                    onClick={() => setLightboxImage(img)}
+                                >
+                                    <img src={img} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <Icon name="search" className="w-4 h-4 text-white" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            case 'timeline':
+                return (
+                    <div key={section.id || index} className="bg-black/15 rounded-2xl border border-white/5 overflow-hidden">
+                        <h3 className="bg-black/30 font-sans text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-4 py-2.5 border-b border-white/5">{section.title}</h3>
+                        <div className="p-5 space-y-6 relative before:absolute before:left-[23px] before:top-6 before:bottom-6 before:w-[1px] before:bg-white/5">
+                            {section.timeline_items?.map((item, i) => (
+                                <div key={i} className="relative pl-8">
+                                    <div className="absolute left-0 top-1 w-3 h-3 rounded-full bg-dnd-dark border border-dnd-gold z-10" />
+                                    <span className="text-dnd-gold font-bold text-[9px] uppercase tracking-widest bg-dnd-gold/10 px-2 py-0.5 rounded border border-dnd-gold/20 leading-none inline-block mb-2">{item.date}</span>
+                                    <div 
+                                        className="text-xs text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
+                                        dangerouslySetInnerHTML={{ __html: item.content }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            case 'quote':
+                return (
+                    <div key={section.id || index} className="bg-black/15 rounded-2xl border-l-4 border-dnd-gold p-6 relative overflow-hidden group">
+                        <Icon name="quote" className="absolute -top-2 -right-2 w-16 h-16 text-dnd-gold/5 group-hover:scale-110 transition-transform duration-500" />
+                        <div 
+                            className="text-lg font-serif italic text-white/80 leading-relaxed relative z-10 rich-text-content max-w-none"
+                            dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                        />
+                        {section.quote_author && (
+                            <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-dnd-gold text-right">— {section.quote_author}</p>
+                        )}
+                    </div>
+                );
+            case 'attribute_list':
+                return (
+                    <div key={section.id || index} className="bg-black/15 rounded-2xl border border-white/5 overflow-hidden">
+                        <h3 className="bg-black/30 font-sans text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-4 py-2.5 border-b border-white/5">{section.title}</h3>
+                        <div className="p-4 grid grid-cols-2 gap-4">
+                            {section.stats?.map((stat, i) => (
+                                <div key={i} className="space-y-1">
+                                    <span className="text-[9px] uppercase tracking-widest text-dnd-text/40 font-bold block">{stat.label}</span>
+                                    <span className="text-white font-medium text-sm block">{stat.value}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 );
             case 'statblock':
@@ -327,6 +428,7 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
     const linkedMap = maps.find(m => m.id === pin.linked_map_id);
 
     return (
+        <>
         <aside 
             ref={sideRef}
             className="absolute top-0 right-0 h-full w-full max-w-sm bg-dnd-panel/95 backdrop-blur-md border-l border-white/5 p-5 shadow-2xl z-30 overflow-hidden"
@@ -575,6 +677,62 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                 </div>
             </div>
         </aside>
+        
+        {/* Lightbox */}
+        {lightboxImage && (
+            <div 
+                className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm"
+                onClick={closeLightbox}
+            >
+                <div className="absolute top-6 right-6 flex items-center gap-4 z-[110]">
+                    <div className="flex bg-black/40 backdrop-blur-md rounded-xl border border-white/10 p-1 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <button 
+                            onClick={handleZoomOut}
+                            className="p-2 text-white/60 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                            title="Zoom Out"
+                        >
+                            <Icon name="minus" className="w-5 h-5" />
+                        </button>
+                        <button 
+                            onClick={resetZoom}
+                            className="px-3 text-[10px] font-bold uppercase tracking-widest text-dnd-gold hover:text-white transition-colors"
+                        >
+                            {Math.round(zoomLevel * 100)}%
+                        </button>
+                        <button 
+                            onClick={handleZoomIn}
+                            className="p-2 text-white/60 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+                            title="Zoom In"
+                        >
+                            <Icon name="plus" className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <button 
+                        onClick={closeLightbox}
+                        className="bg-black/40 backdrop-blur-md text-white/60 hover:text-white p-2.5 rounded-xl border border-white/10 transition-all hover:scale-110"
+                    >
+                        <Icon name="close" className="w-6 h-6" />
+                    </button>
+                </div>
+                
+                <div 
+                    className="max-w-[90vw] max-h-[90vh] overflow-auto custom-scrollbar flex items-center justify-center p-10"
+                    onClick={e => e.stopPropagation()}
+                >
+                    <img 
+                        src={lightboxImage} 
+                        alt="Full View" 
+                        className="transition-transform duration-300 ease-out origin-center cursor-default select-none shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+                        style={{ 
+                            transform: `scale(${zoomLevel})`,
+                            transition: zoomLevel === 1 ? 'transform 0.3s ease-out' : 'none'
+                             }}
+                        referrerPolicy="no-referrer"
+                    />
+                </div>
+            </div>
+        )}
+    </>
     );
 };
 
