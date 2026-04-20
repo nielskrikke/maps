@@ -1328,7 +1328,8 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
             image_url: (type === 'image' || type === 'split') ? '' : undefined,
             gallery_images: type === 'gallery' ? [] : undefined,
             timeline_items: type === 'timeline' ? [] : undefined,
-            quote_author: type === 'quote' ? '' : undefined
+            quote_author: type === 'quote' ? '' : undefined,
+            linked_map_id: type === 'map' ? '' : undefined
         }]);
     };
 
@@ -1510,7 +1511,7 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Sections</h3>
                         <div className="flex flex-wrap gap-2">
-                             {(['text', 'image', 'split', 'gallery', 'timeline', 'quote', 'attribute_list', 'list', 'statblock', 'inventory', 'secret', 'encounter'] as PinSectionType[]).map(type => (
+                             {(['text', 'image', 'split', 'map', 'gallery', 'timeline', 'quote', 'attribute_list', 'list', 'statblock', 'inventory', 'secret', 'encounter'] as PinSectionType[]).map(type => (
                                  <button 
                                     key={type} 
                                     type="button" 
@@ -1790,6 +1791,30 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                                     </div>
                                 )}
 
+                                {section.type === 'map' && (
+                                    <div className="space-y-4">
+                                        <RichTextEditor 
+                                            content={section.content || ''} 
+                                            onChange={val => updateSection(section.id, {content: val})} 
+                                            placeholder="Text content..."
+                                            className="w-full"
+                                        />
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Linked Map</label>
+                                            <select 
+                                                value={section.linked_map_id || ''} 
+                                                onChange={e => updateSection(section.id, {linked_map_id: e.target.value})}
+                                                className="w-full bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all"
+                                            >
+                                                <option value="">Select a map...</option>
+                                                {maps.map(m => (
+                                                    <option key={m.id} value={m.id}>{m.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {section.type === 'gallery' && (
                                     <div className="space-y-4">
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Gallery Images (One per line)</p>
@@ -1961,7 +1986,7 @@ interface WikiPageManagerModalProps {
     initialEditItem?: WikiPage | null;
 }
 export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOpen, onClose, initialEditItem }) => {
-    const { wikiPages, pinTypes, updateLocalWikiPage, removeLocalItem, setError } = useAppContext();
+    const { maps, wikiPages, pinTypes, updateLocalWikiPage, removeLocalItem, setError } = useAppContext();
     const { user } = useAuth();
     const [editingPage, setEditingPage] = useState<Partial<WikiPage> | null>(null);
     const [isEditing, setIsEditing] = useState(false);
@@ -2101,7 +2126,8 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
             image_url: (type === 'image' || type === 'split') ? '' : undefined,
             gallery_images: type === 'gallery' ? [] : undefined,
             timeline_items: type === 'timeline' ? [] : undefined,
-            quote_author: type === 'quote' ? '' : undefined
+            quote_author: type === 'quote' ? '' : undefined,
+            linked_map_id: type === 'map' ? '' : undefined
         }]);
     };
 
@@ -2198,7 +2224,7 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                             <div className="flex justify-between items-center">
                                 <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Sections</h3>
                                 <div className="flex flex-wrap gap-2">
-                                    {(['text', 'image', 'split', 'gallery', 'timeline', 'quote', 'attribute_list', 'list', 'statblock', 'secret', 'encounter'] as PinSectionType[]).map(type => (
+                                    {(['text', 'image', 'split', 'map', 'gallery', 'timeline', 'quote', 'attribute_list', 'list', 'statblock', 'secret', 'encounter'] as PinSectionType[]).map(type => (
                                         <button 
                                             key={type} 
                                             type="button" 
@@ -2431,6 +2457,30 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                                     className="w-full bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all" 
                                                     placeholder="Image URL..."
                                                 />
+                                            </div>
+                                        )}
+
+                                        {section.type === 'map' && (
+                                            <div className="space-y-4">
+                                                <RichTextEditor 
+                                                    content={section.content || ''} 
+                                                    onChange={val => updateSection(section.id, {content: val})} 
+                                                    placeholder="Text content..."
+                                                    className="w-full"
+                                                />
+                                                <div className="space-y-2">
+                                                    <label className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Linked Map</label>
+                                                    <select 
+                                                        value={section.linked_map_id || ''} 
+                                                        onChange={e => updateSection(section.id, {linked_map_id: e.target.value})}
+                                                        className="w-full bg-black/20 rounded-xl p-3 text-xs text-dnd-text/60 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all"
+                                                    >
+                                                        <option value="">Select a map...</option>
+                                                        {maps.map(m => (
+                                                            <option key={m.id} value={m.id}>{m.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
                                             </div>
                                         )}
 

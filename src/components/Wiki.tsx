@@ -666,7 +666,7 @@ const Wiki: React.FC<WikiProps> = ({
                     {page.sections?.map((section, idx) => {
                         const isVisible = section.is_visible ?? (section.type !== 'secret' && section.type !== 'encounter');
                         if (!isVisible && !canSeeSecrets) return null;
-                        const isFullWidth = section.type === 'image' || section.type === 'text' || section.type === 'list' || section.type === 'inventory' || section.type === 'split' || section.type === 'gallery' || section.type === 'timeline' || section.type === 'quote' || section.type === 'attribute_list';
+                        const isFullWidth = section.type === 'image' || section.type === 'text' || section.type === 'list' || section.type === 'inventory' || section.type === 'split' || section.type === 'gallery' || section.type === 'timeline' || section.type === 'quote' || section.type === 'attribute_list' || section.type === 'map';
                         
                         return (
                             <div key={idx} className={cn(
@@ -676,7 +676,8 @@ const Wiki: React.FC<WikiProps> = ({
                             )}>
                                 <div className={cn(
                                     "px-6 py-3 border-b border-white/5 flex items-center justify-between",
-                                    section.type === 'secret' ? 'bg-dnd-red/10' : 'bg-black/30'
+                                    section.type === 'secret' ? 'bg-dnd-red/10' : 'bg-black/30',
+                                    section.type === 'map' ? 'hidden' : ''
                                 )}>
                                     <h3 className={cn(
                                         "font-sans text-[10px] font-black uppercase tracking-[0.2em]",
@@ -757,6 +758,51 @@ const Wiki: React.FC<WikiProps> = ({
                                             {section.image_url && (
                                                 <img src={section.image_url} alt={section.title} className="w-full h-auto rounded-xl shadow-2xl border border-white/10" referrerPolicy="no-referrer" />
                                             )}
+                                        </div>
+                                    )}
+                                    {section.type === 'map' && (
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 items-center w-full">
+                                            <div className="md:col-span-2 space-y-6">
+                                                {section.title && (
+                                                    <div className="space-y-1">
+                                                        <div className="text-[10px] text-dnd-gold font-bold uppercase tracking-[0.2em]">Map Reference</div>
+                                                        <h3 className="text-2xl font-serif font-bold text-white tracking-tight">{section.title}</h3>
+                                                    </div>
+                                                )}
+                                                <div 
+                                                    className="text-dnd-text/60 leading-relaxed rich-text-content max-w-none"
+                                                    dangerouslySetInnerHTML={{ __html: section.content || '' }}
+                                                />
+                                            </div>
+                                            <div className="md:col-span-1">
+                                                {section.linked_map_id && (
+                                                    (() => {
+                                                        const linkedMap = maps.find(m => m.id === section.linked_map_id);
+                                                        if (!linkedMap) return <div className="p-8 bg-black/20 rounded-xl border border-white/5 text-dnd-text/20 italic">Map not found</div>;
+                                                        return (
+                                                            <div 
+                                                                onClick={() => onSelectMap(linkedMap)}
+                                                                className="group relative cursor-pointer overflow-hidden rounded-2xl border border-white/10 shadow-2xl transition-all hover:scale-[1.02] hover:shadow-dnd-gold/20"
+                                                            >
+                                                                <img 
+                                                                    src={linkedMap.image_url} 
+                                                                    alt={linkedMap.name} 
+                                                                    className="w-full h-48 object-cover transition-transform duration-700 group-hover:scale-110" 
+                                                                    referrerPolicy="no-referrer"
+                                                                />
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6">
+                                                                    <div className="text-xs text-dnd-gold font-bold uppercase tracking-[0.2em] mb-1">Linked Map</div>
+                                                                    <div className="text-xl font-serif font-bold text-white tracking-tight">{linkedMap.name}</div>
+                                                                    <div className="flex items-center gap-2 mt-4 text-[10px] text-white/40 uppercase tracking-widest font-bold">
+                                                                        <Icon name="search" className="w-3 h-3 text-dnd-gold" />
+                                                                        Click to open map
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                     {section.type === 'gallery' && (

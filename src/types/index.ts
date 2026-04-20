@@ -33,7 +33,7 @@ export type PinType = {
   created_by: string | null;
 };
 
-export type PinSectionType = 'text' | 'secret' | 'list' | 'statblock' | 'image' | 'inventory' | 'encounter' | 'split' | 'gallery' | 'timeline' | 'quote' | 'attribute_list';
+export type PinSectionType = 'text' | 'secret' | 'list' | 'statblock' | 'image' | 'inventory' | 'encounter' | 'split' | 'gallery' | 'timeline' | 'quote' | 'attribute_list' | 'map';
 
 export type InventoryItem = {
     id: string; // unique ID within the inventory
@@ -59,6 +59,7 @@ export type PinSection = {
   gallery_images?: string[]; // For 'gallery' type
   timeline_items?: { date: string; content: string }[]; // For 'timeline' type
   quote_author?: string; // For 'quote' type
+  linked_map_id?: string | null; // For 'map' type
   is_visible?: boolean; // New granular visibility toggle
 };
 
