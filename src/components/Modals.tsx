@@ -30,7 +30,7 @@ interface ModalProps {
     maxWidthClass?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidthClass = 'max-w-2xl' }) => {
+export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidthClass = 'max-w-2xl' }) => {
     useEffect(() => {
         const handleEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
@@ -58,15 +58,25 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
                 )}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4 flex-shrink-0">
-                    <h2 className="text-xl font-serif font-bold text-white tracking-tight">{title}</h2>
+                {title !== '' && (
+                    <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4 flex-shrink-0">
+                        <h2 className="text-xl font-serif font-bold text-white tracking-tight">{title}</h2>
+                        <button 
+                            onClick={onClose} 
+                            className="rounded-full p-1.5 text-dnd-text/40 transition-all hover:bg-white/5 hover:text-white"
+                        >
+                            <Icon name="close" className="h-5 w-5" />
+                        </button>
+                    </div>
+                )}
+                {title === '' && (
                     <button 
                         onClick={onClose} 
-                        className="rounded-full p-1.5 text-dnd-text/40 transition-all hover:bg-white/5 hover:text-white"
+                        className="absolute top-4 right-4 z-20 rounded-full p-1.5 text-dnd-text/40 transition-all hover:bg-white/5 hover:text-white"
                     >
                         <Icon name="close" className="h-5 w-5" />
                     </button>
-                </div>
+                )}
                 <div className="overflow-y-auto pr-2 custom-scrollbar flex-1">{children}</div>
             </div>
         </div>
@@ -1329,7 +1339,8 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
             gallery_images: type === 'gallery' ? [] : undefined,
             timeline_items: type === 'timeline' ? [] : undefined,
             quote_author: type === 'quote' ? '' : undefined,
-            linked_map_id: type === 'map' ? '' : undefined
+            linked_map_id: type === 'map' ? '' : undefined,
+            quests: type === 'quests' ? [] : undefined
         }]);
     };
 
@@ -1343,6 +1354,18 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
     
     const removeSection = (id: string) => {
         setSections(prev => prev.filter(s => s.id !== id));
+    };
+
+    const moveSection = (id: string, direction: 'up' | 'down') => {
+        setSections(prev => {
+            const index = prev.findIndex(s => s.id === id);
+            if (index === -1) return prev;
+            const newIndex = direction === 'up' ? index - 1 : index + 1;
+            if (newIndex < 0 || newIndex >= prev.length) return prev;
+            const newSections = [...prev];
+            [newSections[index], newSections[newIndex]] = [newSections[newIndex], newSections[index]];
+            return newSections;
+        });
     };
 
     // Inventory Helpers
@@ -1511,7 +1534,7 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Sections</h3>
                         <div className="flex flex-wrap gap-2">
-                             {(['text', 'image', 'split', 'map', 'gallery', 'timeline', 'quote', 'attribute_list', 'list', 'statblock', 'inventory', 'secret', 'encounter'] as PinSectionType[]).map(type => (
+                             {(['text', 'image', 'split', 'map', 'quests', 'gallery', 'timeline', 'quote', 'attribute_list', 'list', 'statblock', 'inventory', 'secret', 'encounter'] as PinSectionType[]).map(type => (
                                  <button 
                                     key={type} 
                                     type="button" 
@@ -1528,13 +1551,33 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                     <div className="space-y-6">
                         {sections.map((section, idx) => (
                             <div key={section.id} className="bg-white/5 border border-white/5 rounded-3xl p-6 relative group shadow-lg backdrop-blur-sm">
-                                <button 
-                                    type="button" 
-                                    onClick={() => removeSection(section.id)} 
-                                    className="absolute top-4 right-4 p-2 text-dnd-text/20 hover:text-dnd-red transition-colors opacity-0 group-hover:opacity-100"
-                                >
-                                    <Icon name="trash" className="w-4 h-4"/>
-                                </button>
+                                <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex bg-black/20 rounded-lg p-1 border border-white/5">
+                                        <button 
+                                            type="button"
+                                            disabled={idx === 0}
+                                            onClick={() => moveSection(section.id, 'up')}
+                                            className="p-1.5 text-dnd-text/40 hover:text-dnd-gold disabled:opacity-20 transition-colors"
+                                        >
+                                            <Icon name="chevron-up" className="w-4 h-4"/>
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            disabled={idx === sections.length - 1}
+                                            onClick={() => moveSection(section.id, 'down')}
+                                            className="p-1.5 text-dnd-text/40 hover:text-dnd-gold disabled:opacity-20 transition-colors"
+                                        >
+                                            <Icon name="chevron-down" className="w-4 h-4"/>
+                                        </button>
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => removeSection(section.id)} 
+                                        className="p-2 text-dnd-text/20 hover:text-dnd-red transition-colors"
+                                    >
+                                        <Icon name="trash" className="w-4 h-4"/>
+                                    </button>
+                                </div>
                                 
                                 <div className="mb-6 flex flex-col sm:flex-row gap-4">
                                     <div className="bg-dnd-gold/10 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest text-dnd-gold self-start border border-dnd-gold/20">
@@ -1815,6 +1858,64 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
                                     </div>
                                 )}
 
+                                {section.type === 'quests' && (
+                                    <div className="space-y-4">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => updateSection(section.id, (s) => ({ quests: [...(s.quests || []), { id: crypto.randomUUID(), title: '', description: '', icon: '📜', image_url: '' }] }))}
+                                            className="w-full py-2 bg-dnd-gold/10 hover:bg-dnd-gold/20 text-dnd-gold rounded-xl text-[10px] font-bold uppercase tracking-widest border border-dnd-gold/20 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Icon name="plus" className="w-3 h-3" />
+                                            Add Quest
+                                        </button>
+                                        <div className="space-y-2">
+                                            {section.quests?.map((quest, qIdx) => (
+                                                <div key={quest.id} className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-3 relative group/quest">
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => updateSection(section.id, (s) => ({ quests: s.quests?.filter((_, i) => i !== qIdx) }))}
+                                                        className="absolute top-2 right-2 p-1 text-dnd-text/20 hover:text-dnd-red transition-colors opacity-0 group-hover/quest:opacity-100"
+                                                    >
+                                                        <Icon name="close" className="w-3 h-3" />
+                                                    </button>
+                                                    <div className="grid grid-cols-[auto,1fr] gap-3">
+                                                        <input 
+                                                            type="text" 
+                                                            value={quest.icon} 
+                                                            onChange={e => updateSection(section.id, (s) => ({ quests: s.quests?.map((q, i) => i === qIdx ? { ...q, icon: e.target.value } : q) }))}
+                                                            className="w-10 bg-black/20 rounded-lg p-2 text-center text-lg border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all" 
+                                                            placeholder="Icon"
+                                                        />
+                                                        <input 
+                                                            type="text" 
+                                                            value={quest.title} 
+                                                            onChange={e => updateSection(section.id, (s) => ({ quests: s.quests?.map((q, i) => i === qIdx ? { ...q, title: e.target.value } : q) }))}
+                                                            className="w-full bg-black/20 rounded-lg p-2 text-xs text-white font-bold border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all" 
+                                                            placeholder="Quest Title"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Quest Description</label>
+                                                        <RichTextEditor 
+                                                            content={quest.description || ''} 
+                                                            onChange={val => updateSection(section.id, (s) => ({ quests: s.quests?.map((q, i) => i === qIdx ? { ...q, description: val } : q) }))} 
+                                                            placeholder="Full quest details..."
+                                                            className="w-full"
+                                                        />
+                                                    </div>
+                                                    <input 
+                                                        type="text" 
+                                                        value={quest.image_url} 
+                                                        onChange={e => updateSection(section.id, (s) => ({ quests: s.quests?.map((q, i) => i === qIdx ? { ...q, image_url: e.target.value } : q) }))}
+                                                        className="w-full bg-black/20 rounded-lg p-2 text-[10px] text-dnd-text/40 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all" 
+                                                        placeholder="Optional Image URL"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {section.type === 'gallery' && (
                                     <div className="space-y-4">
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Gallery Images (One per line)</p>
@@ -2037,6 +2138,18 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
         setSections(prev => prev.filter(s => s.id !== id));
     };
 
+    const moveSection = (id: string, direction: 'up' | 'down') => {
+        setSections(prev => {
+            const index = prev.findIndex(s => s.id === id);
+            if (index === -1) return prev;
+            const newIndex = direction === 'up' ? index - 1 : index + 1;
+            if (newIndex < 0 || newIndex >= prev.length) return prev;
+            const newSections = [...prev];
+            [newSections[index], newSections[newIndex]] = [newSections[newIndex], newSections[index]];
+            return newSections;
+        });
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) {
@@ -2127,7 +2240,8 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
             gallery_images: type === 'gallery' ? [] : undefined,
             timeline_items: type === 'timeline' ? [] : undefined,
             quote_author: type === 'quote' ? '' : undefined,
-            linked_map_id: type === 'map' ? '' : undefined
+            linked_map_id: type === 'map' ? '' : undefined,
+            quests: type === 'quests' ? [] : undefined
         }]);
     };
 
@@ -2224,7 +2338,7 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                             <div className="flex justify-between items-center">
                                 <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Sections</h3>
                                 <div className="flex flex-wrap gap-2">
-                                    {(['text', 'image', 'split', 'map', 'gallery', 'timeline', 'quote', 'attribute_list', 'list', 'statblock', 'secret', 'encounter'] as PinSectionType[]).map(type => (
+                                    {(['text', 'image', 'split', 'map', 'quests', 'gallery', 'timeline', 'quote', 'attribute_list', 'list', 'statblock', 'secret', 'encounter'] as PinSectionType[]).map(type => (
                                         <button 
                                             key={type} 
                                             type="button" 
@@ -2240,13 +2354,33 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                             <div className="space-y-4">
                                 {sections.map((section, idx) => (
                                     <div key={section.id} className="bg-white/5 border border-white/5 rounded-2xl p-4 relative group">
-                                        <button 
-                                            type="button" 
-                                            onClick={() => removeSection(section.id)} 
-                                            className="absolute top-2 right-2 p-1 text-dnd-text/20 hover:text-dnd-red transition-colors opacity-0 group-hover:opacity-100"
-                                        >
-                                            <Icon name="close" className="w-4 h-4"/>
-                                        </button>
+                                        <div className="absolute top-2 right-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex bg-black/20 rounded-lg p-0.5 border border-white/5">
+                                                <button 
+                                                    type="button"
+                                                    disabled={idx === 0}
+                                                    onClick={() => moveSection(section.id, 'up')}
+                                                    className="p-1 text-dnd-text/40 hover:text-dnd-gold disabled:opacity-10 transition-colors"
+                                                >
+                                                    <Icon name="chevron-up" className="w-3.5 h-3.5"/>
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    disabled={idx === sections.length - 1}
+                                                    onClick={() => moveSection(section.id, 'down')}
+                                                    className="p-1 text-dnd-text/40 hover:text-dnd-gold disabled:opacity-10 transition-colors"
+                                                >
+                                                    <Icon name="chevron-down" className="w-3.5 h-3.5"/>
+                                                </button>
+                                            </div>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => removeSection(section.id)} 
+                                                className="p-1 text-dnd-text/20 hover:text-dnd-red transition-colors"
+                                            >
+                                                <Icon name="close" className="w-4 h-4"/>
+                                            </button>
+                                        </div>
                                         <div className="flex gap-4 mb-4">
                                             <div className="text-[10px] font-bold uppercase tracking-widest text-dnd-gold/60">{section.type}</div>
                                             <label className={cn(
@@ -2480,6 +2614,64 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                                             <option key={m.id} value={m.id}>{m.name}</option>
                                                         ))}
                                                     </select>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {section.type === 'quests' && (
+                                            <div className="space-y-4">
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => updateSection(section.id, (s) => ({ quests: [...(s.quests || []), { id: crypto.randomUUID(), title: '', description: '', icon: '📜', image_url: '' }] }))}
+                                                    className="w-full py-2 bg-dnd-gold/10 hover:bg-dnd-gold/20 text-dnd-gold rounded-xl text-[10px] font-bold uppercase tracking-widest border border-dnd-gold/20 transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    <Icon name="plus" className="w-3 h-3" />
+                                                    Add Quest
+                                                </button>
+                                                <div className="space-y-2">
+                                                    {section.quests?.map((quest, qIdx) => (
+                                                        <div key={quest.id} className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-3 relative group/quest">
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => updateSection(section.id, (s) => ({ quests: s.quests?.filter((_, i) => i !== qIdx) }))}
+                                                                className="absolute top-2 right-2 p-1 text-dnd-text/20 hover:text-dnd-red transition-colors opacity-0 group-hover/quest:opacity-100"
+                                                            >
+                                                                <Icon name="close" className="w-3 h-3" />
+                                                            </button>
+                                                            <div className="grid grid-cols-[auto,1fr] gap-3">
+                                                                <input 
+                                                                    type="text" 
+                                                                    value={quest.icon} 
+                                                                    onChange={e => updateSection(section.id, (s) => ({ quests: s.quests?.map((q, i) => i === qIdx ? { ...q, icon: e.target.value } : q) }))}
+                                                                    className="w-10 bg-black/20 rounded-lg p-2 text-center text-lg border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all" 
+                                                                    placeholder="Icon"
+                                                                />
+                                                                <input 
+                                                                    type="text" 
+                                                                    value={quest.title} 
+                                                                    onChange={e => updateSection(section.id, (s) => ({ quests: s.quests?.map((q, i) => i === qIdx ? { ...q, title: e.target.value } : q) }))}
+                                                                    className="w-full bg-black/20 rounded-lg p-2 text-xs text-white font-bold border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all" 
+                                                                    placeholder="Quest Title"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <label className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Quest Description</label>
+                                                                <RichTextEditor 
+                                                                    content={quest.description || ''} 
+                                                                    onChange={val => updateSection(section.id, (s) => ({ quests: s.quests?.map((q, i) => i === qIdx ? { ...q, description: val } : q) }))} 
+                                                                    placeholder="Full quest details..."
+                                                                    className="w-full"
+                                                                />
+                                                            </div>
+                                                            <input 
+                                                                type="text" 
+                                                                value={quest.image_url} 
+                                                                onChange={e => updateSection(section.id, (s) => ({ quests: s.quests?.map((q, i) => i === qIdx ? { ...q, image_url: e.target.value } : q) }))}
+                                                                className="w-full bg-black/20 rounded-lg p-2 text-[10px] text-dnd-text/40 border border-white/5 focus:outline-none focus:border-dnd-gold/50 transition-all" 
+                                                                placeholder="Optional Image URL"
+                                                            />
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )}

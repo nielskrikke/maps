@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../contexts/AppContext';
 import { useAuth } from '../App';
-import { Map as MapType, Pin, Character, Comment, WikiPage } from '../types';
+import { Map as MapType, Pin, Character, Comment, WikiPage, QuestItem } from '../types';
 import { Icon } from './Icons';
 import { RichTextEditor } from './RichTextEditor';
-import { ConfirmModal } from './Modals';
+import { ConfirmModal, Modal } from './Modals';
 import { supabase } from '../services/supabase';
 import { cn, stripHtml } from '../lib/utils';
 
@@ -52,6 +52,7 @@ const Wiki: React.FC<WikiProps> = ({
     const [characterComments, setCharacterComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [isPrivateComment, setIsPrivateComment] = useState(false);
+    const [selectedQuest, setSelectedQuest] = useState<QuestItem | null>(null);
 
     // Fetch character comments when a character is selected
     useEffect(() => {
@@ -666,7 +667,7 @@ const Wiki: React.FC<WikiProps> = ({
                     {page.sections?.map((section, idx) => {
                         const isVisible = section.is_visible ?? (section.type !== 'secret' && section.type !== 'encounter');
                         if (!isVisible && !canSeeSecrets) return null;
-                        const isFullWidth = section.type === 'image' || section.type === 'text' || section.type === 'list' || section.type === 'inventory' || section.type === 'split' || section.type === 'gallery' || section.type === 'timeline' || section.type === 'quote' || section.type === 'attribute_list' || section.type === 'map';
+                        const isFullWidth = section.type === 'image' || section.type === 'text' || section.type === 'list' || section.type === 'inventory' || section.type === 'split' || section.type === 'gallery' || section.type === 'timeline' || section.type === 'quote' || section.type === 'attribute_list' || section.type === 'map' || section.type === 'quests';
                         
                         return (
                             <div key={idx} className={cn(
@@ -677,7 +678,7 @@ const Wiki: React.FC<WikiProps> = ({
                                 <div className={cn(
                                     "px-6 py-3 border-b border-white/5 flex items-center justify-between",
                                     section.type === 'secret' ? 'bg-dnd-red/10' : 'bg-black/30',
-                                    section.type === 'map' ? 'hidden' : ''
+                                    (section.type === 'map' || section.type === 'quests') ? 'hidden' : ''
                                 )}>
                                     <h3 className={cn(
                                         "font-sans text-[10px] font-black uppercase tracking-[0.2em]",
@@ -852,6 +853,41 @@ const Wiki: React.FC<WikiProps> = ({
                                                     <span className="text-dnd-gold font-bold uppercase tracking-widest text-xs">{section.quote_author}</span>
                                                 </div>
                                             )}
+                                        </div>
+                                    )}
+                                    {section.type === 'quests' && (
+                                        <div className="space-y-6">
+                                            {section.title && (
+                                                <div className="space-y-1">
+                                                    <div className="text-[10px] text-dnd-gold font-bold uppercase tracking-[0.2em]">Objective Log</div>
+                                                    <h3 className="text-2xl font-serif font-bold text-white tracking-tight">{section.title}</h3>
+                                                </div>
+                                            )}
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {section.quests?.map((quest) => (
+                                                    <button 
+                                                        key={quest.id} 
+                                                        onClick={() => setSelectedQuest(quest)}
+                                                        className="flex flex-col gap-3 bg-black/30 p-4 rounded-xl border border-white/5 hover:bg-white/5 hover:border-dnd-gold/30 transition-all group text-left overflow-hidden h-full"
+                                                    >
+                                                        <div className="flex items-center gap-4">
+                                                            <span className="text-3xl bg-white/5 w-12 h-12 flex items-center justify-center rounded-lg border border-white/5 shrink-0 group-hover:scale-110 transition-transform">{quest.icon || '📜'}</span>
+                                                            <div className="min-w-0">
+                                                                <div className="font-bold text-white group-hover:text-dnd-gold transition-colors truncate">{quest.title}</div>
+                                                                <div className="text-[10px] text-dnd-text/40 uppercase tracking-widest font-bold">Quest Item</div>
+                                                            </div>
+                                                        </div>
+                                                        {quest.image_url && (
+                                                            <div className="aspect-video w-full rounded-lg overflow-hidden border border-white/5 bg-black/20">
+                                                                <img src={quest.image_url} alt={quest.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" referrerPolicy="no-referrer" />
+                                                            </div>
+                                                        )}
+                                                        <div className="text-xs text-dnd-text/40 line-clamp-2 leading-relaxed">
+                                                            {stripHtml(quest.description)}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                     {section.type === 'attribute_list' && (
@@ -1188,7 +1224,50 @@ const Wiki: React.FC<WikiProps> = ({
                         </div>
                     </div>
                 )}
-            </div>
+
+            {/* Quest Detail Modal */}
+            <Modal
+                isOpen={!!selectedQuest}
+                onClose={() => setSelectedQuest(null)}
+                title=""
+                maxWidthClass="max-w-2xl"
+            >
+                {selectedQuest && (
+                    <div className="space-y-6 pb-4">
+                        <div className="flex items-center gap-5">
+                            <span className="text-4xl bg-white/5 w-16 h-16 flex items-center justify-center rounded-2xl border border-white/5 shadow-inner">{selectedQuest.icon || '📜'}</span>
+                            <div>
+                                <div className="text-[10px] text-dnd-gold font-bold uppercase tracking-[0.2em] mb-0.5">Quest Details</div>
+                                <h2 className="text-2xl font-serif font-bold text-white tracking-tight">{selectedQuest.title}</h2>
+                            </div>
+                        </div>
+                        
+                        {selectedQuest.image_url && (
+                            <div className="rounded-2xl overflow-hidden border border-white/10 shadow-2xl aspect-video bg-black/40">
+                                <img src={selectedQuest.image_url} alt={selectedQuest.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            </div>
+                        )}
+
+                        <div className="space-y-3">
+                            <div className="text-[10px] text-dnd-text/40 font-bold uppercase tracking-widest">Description</div>
+                            <div 
+                                className="bg-white/5 p-6 rounded-2xl border border-white/5 text-dnd-text/80 leading-relaxed rich-text-content"
+                                dangerouslySetInnerHTML={{ __html: selectedQuest.description }}
+                            />
+                        </div>
+
+                        <div className="pt-4 flex justify-end">
+                            <button 
+                                onClick={() => setSelectedQuest(null)}
+                                className="px-6 py-3 bg-dnd-gold text-dnd-dark font-black uppercase tracking-widest text-xs rounded-xl hover:scale-105 transition-all shadow-lg active:scale-95"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+        </div>
     );
 };
 

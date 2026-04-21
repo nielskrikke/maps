@@ -33,7 +33,7 @@ export type PinType = {
   created_by: string | null;
 };
 
-export type PinSectionType = 'text' | 'secret' | 'list' | 'statblock' | 'image' | 'inventory' | 'encounter' | 'split' | 'gallery' | 'timeline' | 'quote' | 'attribute_list' | 'map';
+export type PinSectionType = 'text' | 'secret' | 'list' | 'statblock' | 'image' | 'inventory' | 'encounter' | 'split' | 'gallery' | 'timeline' | 'quote' | 'attribute_list' | 'map' | 'quests';
 
 export type InventoryItem = {
     id: string; // unique ID within the inventory
@@ -44,6 +44,14 @@ export type InventoryItem = {
     is_magic?: boolean;
     cost?: string;
     category?: string;
+};
+
+export type QuestItem = {
+  id: string;
+  title: string;
+  description: string;
+  icon?: string;
+  image_url?: string;
 };
 
 export type PinSection = {
@@ -60,6 +68,7 @@ export type PinSection = {
   timeline_items?: { date: string; content: string }[]; // For 'timeline' type
   quote_author?: string; // For 'quote' type
   linked_map_id?: string | null; // For 'map' type
+  quests?: QuestItem[]; // For 'quests' type
   is_visible?: boolean; // New granular visibility toggle
 };
 

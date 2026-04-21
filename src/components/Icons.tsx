@@ -5,7 +5,7 @@ export type IconName =
   | 'map' | 'globe' | 'castle' | 'skull' | 'pin' | 'shield' | 'user' | 'spinner' 
   | 'upload' | 'download' | 'tag' | 'logout' | 'close' | 'lock' | 'eye' 
   | 'eye-off' | 'trash' | 'pencil' | 'brush' | 'center' | 'image' 
-  | 'chevron-down' | 'chevron-right' | 'plus' | 'minus' | 'hand' | 'chest' 
+  | 'chevron-up' | 'chevron-down' | 'chevron-right' | 'plus' | 'minus' | 'hand' | 'chest' 
   | 'backpack' | 'search' | 'book' | 'scroll' | 'compass' | 'external' 
   | 'settings' | 'view_apps' | 'visibility' | 'visibility_off' | 'check'
   | 'bold' | 'italic' | 'underline' | 'list' | 'list-ordered' | 'heading1' | 'heading2' | 'heading3' | 'type'
@@ -38,6 +38,7 @@ const iconPaths: Record<string, React.ReactNode> = {
   brush: <><path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-3.91.39-4.63 3.53-4.63 4.74 0 1.1.9 2 2 2 1.21 0 4.35-.72 4.74-4.63l1.95-1.96a2 2 0 0 1 2.83 0l1.41 1.41a2 2 0 0 1 0 2.83l-1.96 1.95c-3.91.39-4.63 3.53-4.63 4.74 0 1.1.9 2 2 2 1.21 0 4.35-.72 4.74-4.63"/></>,
   center: <><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></>,
   image: <><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></>,
+  'chevron-up': <polyline points="18 15 12 9 6 15" />,
   'chevron-down': <polyline points="6 9 12 15 18 9" />,
   'chevron-right': <polyline points="9 18 15 12 9 6" />,
   plus: <><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></>,
