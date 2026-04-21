@@ -2338,7 +2338,7 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                             <div className="flex justify-between items-center">
                                 <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20">Sections</h3>
                                 <div className="flex flex-wrap gap-2">
-                                    {(['text', 'image', 'split', 'map', 'quests', 'gallery', 'timeline', 'quote', 'attribute_list', 'list', 'statblock', 'secret', 'encounter'] as PinSectionType[]).map(type => (
+                                    {(['text', 'image', 'split', 'map', 'quests', 'gallery', 'timeline', 'quote', 'attribute_list', 'list', 'statblock', 'inventory', 'secret', 'encounter'] as PinSectionType[]).map(type => (
                                         <button 
                                             key={type} 
                                             type="button" 

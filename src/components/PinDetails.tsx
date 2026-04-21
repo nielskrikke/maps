@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Pin, Comment, PinSection, Character } from '../types';
+import { Pin, Comment, PinSection, Character, QuestItem } from '../types';
 import { useAuth } from '../App';
 import { useAppContext } from '../contexts/AppContext';
 import { supabase } from '../services/supabase';
 import { Icon } from './Icons';
 import { RichTextEditor } from './RichTextEditor';
 import { cn } from '../lib/utils';
+import { Modal } from './Modals';
 
 interface PinDetailsProps {
     pin: Pin | null;
@@ -36,6 +37,8 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
     // Lightbox state
     const [lightboxImage, setLightboxImage] = useState<string | null>(null);
     const [zoomLevel, setZoomLevel] = useState(1);
+
+    const [selectedQuest, setSelectedQuest] = useState<any>(null);
 
     const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.5, 3));
     const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.5, 1));
@@ -219,6 +222,37 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
                         </div>
                     </div>
                  );
+            case 'quests':
+                return (
+                    <div key={section.id || index} className="space-y-4">
+                        {section.title && (
+                            <h3 className="font-sans text-[10px] font-black uppercase tracking-[0.2em] text-dnd-gold/60 px-1">{section.title}</h3>
+                        )}
+                        <div className="grid grid-cols-1 gap-4">
+                            {section.quests?.map((quest) => (
+                                <button 
+                                    key={quest.id} 
+                                    onClick={() => setSelectedQuest(quest)}
+                                    className="flex flex-col gap-3 bg-black/20 p-4 rounded-xl border border-white/5 hover:bg-white/5 transition-all text-left overflow-hidden group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl bg-white/5 w-10 h-10 flex items-center justify-center rounded-lg border border-white/5 group-hover:scale-110 transition-transform shrink-0">{quest.icon || '📜'}</span>
+                                        <div className="min-w-0">
+                                            <div className="font-bold text-sm text-white group-hover:text-dnd-gold transition-colors truncate">{quest.title}</div>
+                                            <div className="text-[10px] text-dnd-text/40 uppercase tracking-widest font-bold">Quest Item</div>
+                                        </div>
+                                    </div>
+                                    {quest.description && (
+                                        <div 
+                                            className="text-[11px] text-dnd-text/40 line-clamp-2 leading-relaxed rich-text-content"
+                                            dangerouslySetInnerHTML={{ __html: quest.description }}
+                                        />
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                );
             case 'image':
                 return (
                     <div key={section.id || index} className="bg-black/15 rounded-2xl p-3 border border-white/5 overflow-hidden">
@@ -678,6 +712,51 @@ const PinDetails: React.FC<PinDetailsProps> = ({ pin, onClose, onEdit, mapId, on
             </div>
         </aside>
         
+        {/* Quest Detail Modal */}
+        <Modal
+            isOpen={!!selectedQuest}
+            onClose={() => setSelectedQuest(null)}
+            title=""
+            maxWidthClass="max-w-2xl"
+        >
+            {selectedQuest && (
+                <div className="space-y-8 py-4">
+                    <div className="flex items-center gap-6">
+                        <div className="text-5xl bg-white/5 w-20 h-20 flex items-center justify-center rounded-2xl border border-white/10 shadow-2xl shrink-0">
+                            {selectedQuest.icon || '📜'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <div className="text-xs text-dnd-gold font-bold uppercase tracking-[0.3em] mb-2">Quest Details</div>
+                            <h2 className="text-3xl font-serif font-black text-white tracking-tight leading-tight">{selectedQuest.title}</h2>
+                        </div>
+                    </div>
+
+                    {selectedQuest.image_url && (
+                        <div className="relative group rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+                            <img src={selectedQuest.image_url} alt={selectedQuest.title} className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105" referrerPolicy="no-referrer" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+                        </div>
+                    )}
+
+                    <div className="space-y-4">
+                        <div 
+                            className="bg-white/5 p-6 rounded-2xl border border-white/5 text-dnd-text/80 leading-relaxed rich-text-content"
+                            dangerouslySetInnerHTML={{ __html: selectedQuest.description }}
+                        />
+                    </div>
+
+                    <div className="pt-6 border-t border-white/5 flex justify-end">
+                        <button 
+                            onClick={() => setSelectedQuest(null)}
+                            className="px-8 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold uppercase tracking-widest text-dnd-text/60 transition-all border border-white/5"
+                        >
+                            Return to Atlas
+                        </button>
+                    </div>
+                </div>
+            )}
+        </Modal>
+
         {/* Lightbox */}
         {lightboxImage && (
             <div 
