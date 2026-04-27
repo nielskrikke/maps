@@ -25,6 +25,20 @@ export type Map = {
   map_type?: MapTypeEnum; // New field for map classification
 };
 
+export type MapLabel = {
+  id: string;
+  map_id: string;
+  text: string;
+  x_coord: number;
+  y_coord: number;
+  font_size: number;
+  color: string;
+  is_visible: boolean;
+  created_by: string;
+  created_at: string;
+  font_family?: string;
+};
+
 export type PinType = {
   id:string;
   name: string;

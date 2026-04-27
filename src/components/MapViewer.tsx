@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Map as MapType, Pin } from '../types';
+import { Map as MapType, Pin, MapLabel } from '../types';
 import { useAppContext } from '../contexts/AppContext';
 import { useAuth } from '../App';
 import { Icon } from './Icons';
@@ -9,15 +9,18 @@ import { cn } from '../lib/utils';
 interface MapViewerProps {
     map: MapType;
     onSelectPin: (pin: Pin) => void;
+    onSelectLabel?: (label: MapLabel) => void;
     onAddPin: (coords: { x: number; y: number }) => void;
+    onAddLabel?: (coords: { x: number; y: number }) => void;
     onMovePin?: (pinId: string, x: number, y: number) => void;
+    onMoveLabel?: (labelId: string, x: number, y: number) => void;
     highlightedPinId?: string | null;
 }
 
-type InteractionMode = 'pan' | 'pin';
+type InteractionMode = 'pan' | 'pin' | 'label';
 
-const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMovePin, highlightedPinId }) => {
-    const { pins, pinTypes, isPlayerView, characters } = useAppContext();
+const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onSelectLabel, onAddPin, onAddLabel, onMovePin, onMoveLabel, highlightedPinId }) => {
+    const { pins, labels, pinTypes, isPlayerView, characters } = useAppContext();
     const { user } = useAuth();
     const containerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<HTMLDivElement>(null);
@@ -30,6 +33,7 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
     
     // Dragging Pins State
     const [draggingPinId, setDraggingPinId] = useState<string | null>(null);
+    const [draggingLabelId, setDraggingLabelId] = useState<string | null>(null);
     const [dragPosition, setDragPosition] = useState<{ x: number, y: number } | null>(null);
     
     // Default to 'pan' mode. Only DMs can switch to 'pin'.
@@ -132,8 +136,8 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
     };
 
     const handleMouseDown = (e: React.MouseEvent) => {
-        // If we are dragging a pin, do not start pan
-        if (draggingPinId) return;
+        // If we are dragging a pin or label, do not start pan
+        if (draggingPinId || draggingLabelId) return;
 
         if (interactionMode === 'pan' || e.button === 1 || e.button === 2) {
             setIsPanning(true);
@@ -147,11 +151,16 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
             setDraggingPinId(null);
             setDragPosition(null);
         }
+        if (draggingLabelId && dragPosition && onMoveLabel) {
+            onMoveLabel(draggingLabelId, dragPosition.x, dragPosition.y);
+            setDraggingLabelId(null);
+            setDragPosition(null);
+        }
         setIsPanning(false);
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (draggingPinId) {
+        if (draggingPinId || draggingLabelId) {
             if (!containerRef.current || imgDimensions.width === 0) return;
             const rect = containerRef.current.getBoundingClientRect();
             
@@ -163,8 +172,8 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
             let imgX = (mouseX - viewState.x) / viewState.scale;
             let imgY = (mouseY - viewState.y) / viewState.scale;
 
-            // Grid Snapping for Drag
-            if (showGrid && gridSize > 0) {
+            // Grid Snapping for Drag (mostly for pins)
+            if (showGrid && gridSize > 0 && draggingPinId) {
                  const col = Math.floor(imgX / gridSize);
                  const row = Math.floor(imgY / gridSize);
                  const centerX = (col * gridSize) + (gridSize / 2);
@@ -186,7 +195,7 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
     };
 
     const handleMapClick = (e: React.MouseEvent) => {
-        if (!canEdit || isPanning || interactionMode !== 'pin' || draggingPinId) return;
+        if (!canEdit || isPanning || draggingPinId || draggingLabelId) return;
         
         if (e.target !== mapRef.current && e.target !== (mapRef.current?.querySelector('img') as HTMLElement) && e.target !== (mapRef.current?.querySelector('.grid-overlay') as HTMLElement)) return;
 
@@ -195,18 +204,21 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
         let x = (e.clientX - rect.left) / rect.width;
         let y = (e.clientY - rect.top) / rect.height;
 
-        if (showGrid && gridSize > 0 && imgDimensions.width > 0 && imgDimensions.height > 0) {
-            const originalX = x * imgDimensions.width;
-            const originalY = y * imgDimensions.height;
-            const col = Math.floor(originalX / gridSize);
-            const row = Math.floor(originalY / gridSize);
-            const centerX = (col * gridSize) + (gridSize / 2);
-            const centerY = (row * gridSize) + (gridSize / 2);
-            x = centerX / imgDimensions.width;
-            y = centerY / imgDimensions.height;
+        if (interactionMode === 'pin') {
+            if (showGrid && gridSize > 0 && imgDimensions.width > 0 && imgDimensions.height > 0) {
+                const originalX = x * imgDimensions.width;
+                const originalY = y * imgDimensions.height;
+                const col = Math.floor(originalX / gridSize);
+                const row = Math.floor(originalY / gridSize);
+                const centerX = (col * gridSize) + (gridSize / 2);
+                const centerY = (row * gridSize) + (gridSize / 2);
+                x = centerX / imgDimensions.width;
+                y = centerY / imgDimensions.height;
+            }
+            onAddPin({ x, y });
+        } else if (interactionMode === 'label' && onAddLabel) {
+            onAddLabel({ x, y });
         }
-        
-        onAddPin({ x, y });
     };
     
     // Start dragging a pin
@@ -218,8 +230,17 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
         setDragPosition({ x: startX, y: startY });
     };
 
+    // Start dragging a label
+    const handleLabelMouseDown = (e: React.MouseEvent, labelId: string, startX: number, startY: number) => {
+        if (!canEdit) return;
+        e.stopPropagation(); // Prevent panning
+        e.preventDefault();
+        setDraggingLabelId(labelId);
+        setDragPosition({ x: startX, y: startY });
+    };
+
     let cursorStyle = 'default';
-    if (draggingPinId) {
+    if (draggingPinId || draggingLabelId) {
         cursorStyle = 'grabbing';
     } else if (isPanning) {
         cursorStyle = 'grabbing';
@@ -227,6 +248,8 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
         cursorStyle = 'grab';
     } else if (interactionMode === 'pin' && canEdit) {
         cursorStyle = 'crosshair';
+    } else if (interactionMode === 'label' && canEdit) {
+        cursorStyle = 'text';
     }
 
     return (
@@ -306,6 +329,39 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
                     );
                 })}
 
+                {/* Labels */}
+                {labels.filter(label => label.map_id === map.id).map(label => {
+                    const isDragging = label.id === draggingLabelId;
+                    const displayX = isDragging && dragPosition ? dragPosition.x : label.x_coord;
+                    const displayY = isDragging && dragPosition ? dragPosition.y : label.y_coord;
+
+                    return (
+                        <div
+                            key={label.id}
+                            onMouseDown={(e) => handleLabelMouseDown(e, label.id, label.x_coord, label.y_coord)}
+                            onClick={(e) => { e.stopPropagation(); if(!isDragging && onSelectLabel) onSelectLabel(label); }}
+                            className={cn(
+                                "map-label absolute transform -translate-x-1/2 -translate-y-1/2 select-none whitespace-nowrap px-2 py-1 rounded transition-all",
+                                canEdit ? 'cursor-grab active:cursor-grabbing hover:bg-white/5' : 'cursor-default'
+                            )}
+                            style={{
+                                left: `${displayX * 100}%`,
+                                top: `${displayY * 100}%`,
+                                fontSize: `${label.font_size}px`,
+                                color: label.color,
+                                fontFamily: label.font_family || 'Cinzel, serif',
+                                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
+                                fontWeight: 900,
+                                transform: 'translate(-50%, -50%)',
+                                zIndex: 40,
+                                opacity: label.is_visible || (isDM && !isPlayerView) ? 1 : 0
+                            }}
+                        >
+                            {label.text}
+                        </div>
+                    );
+                })}
+
                 {/* Hover Preview Tooltip */}
                 {hoveredPinId && !draggingPinId && (() => {
                     const pin = pins.find(p => p.id === hoveredPinId);
@@ -377,6 +433,16 @@ const MapViewer: React.FC<MapViewerProps> = ({ map, onSelectPin, onAddPin, onMov
                             title="Add Pin Mode"
                         >
                             <Icon name="pin" className="w-4 h-4"/>
+                        </button>
+                        <button 
+                            onClick={() => setInteractionMode('label')} 
+                            className={cn(
+                                "p-2 rounded-lg transition-all",
+                                interactionMode === 'label' ? 'bg-dnd-gold text-white shadow-lg shadow-dnd-gold/20' : 'text-dnd-text/40 hover:text-white hover:bg-white/5'
+                            )}
+                            title="Add Label Mode"
+                        >
+                            <Icon name="type" className="w-4 h-4"/>
                         </button>
                     </div>
                 )}

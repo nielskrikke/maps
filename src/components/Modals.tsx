@@ -2788,4 +2788,167 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
     );
 };
 
+// --- LABEL EDITOR MODAL ---
+interface LabelEditorModalProps {
+    labelData: Partial<MapLabel>;
+    onClose: () => void;
+    onSave: (label?: MapLabel) => void;
+}
+
+export const LabelEditorModal: React.FC<LabelEditorModalProps> = ({ labelData, onClose, onSave }) => {
+    const { user } = useAuth();
+    const { removeLocalItem, setError } = useAppContext();
+    const [text, setText] = useState(labelData.text || '');
+    const [fontSize, setFontSize] = useState(labelData.font_size || 24);
+    const [color, setColor] = useState(labelData.color || '#e5c983');
+    const [fontFamily, setFontFamily] = useState(labelData.font_family || 'Cinzel, serif');
+    const [isVisible, setIsVisible] = useState(labelData.is_visible ?? true);
+    const [loading, setLoading] = useState(false);
+
+    const isEditing = !!labelData.id;
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user) return;
+        setLoading(true);
+
+        const payload = {
+            map_id: labelData.map_id,
+            text,
+            x_coord: labelData.x_coord,
+            y_coord: labelData.y_coord,
+            font_size: fontSize,
+            color,
+            font_family: fontFamily,
+            is_visible: isVisible,
+            created_by: labelData.created_by || user.id
+        };
+
+        try {
+            let res;
+            if (isEditing) {
+                res = await supabase.from('map_labels').update(payload).eq('id', labelData.id).select().single();
+            } else {
+                res = await supabase.from('map_labels').insert(payload).select().single();
+            }
+
+            if (res.data) {
+                onSave(res.data as MapLabel);
+            } else if (res.error) {
+                if (res.error.code === '42P01') {
+                     throw new Error("The 'map_labels' table is missing. Please check your database setup.");
+                }
+                throw res.error;
+            }
+        } catch (err: any) {
+            console.error(err);
+            setError({ message: "Error saving label", details: err });
+            onSave();
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!labelData.id) return;
+        setLoading(true);
+        const { error } = await supabase.from('map_labels').delete().eq('id', labelData.id);
+        if (!error) {
+            removeLocalItem('label', labelData.id);
+            onSave();
+        } else {
+            setError({ message: "Error deleting label", details: error });
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Modal isOpen={true} onClose={onClose} title={isEditing ? 'Edit Label' : 'Add Label'} maxWidthClass="max-w-md">
+            <form onSubmit={handleSave} className="space-y-6">
+                 <div className="space-y-3">
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Label Text</label>
+                    <input 
+                        type="text" 
+                        value={text} 
+                        onChange={e => setText(e.target.value)} 
+                        required 
+                        className="w-full rounded-2xl border border-white/5 bg-black/20 px-5 py-4 text-white font-bold focus:outline-none focus:border-dnd-gold/50 transition-all font-serif italic" 
+                        placeholder="City Name"
+                    />
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Font Size</label>
+                        <input 
+                            type="number" 
+                            value={fontSize} 
+                            onChange={e => setFontSize(parseInt(e.target.value))} 
+                            className="w-full rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-white font-bold focus:outline-none" 
+                        />
+                    </div>
+                    <div className="space-y-3">
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Color</label>
+                        <div className="flex gap-2">
+                             <input 
+                                type="color" 
+                                value={color} 
+                                onChange={e => setColor(e.target.value)} 
+                                className="w-12 h-12 rounded-xl bg-black/20 border border-white/5 overflow-hidden cursor-pointer" 
+                            />
+                            <input 
+                                type="text" 
+                                value={color} 
+                                onChange={e => setColor(e.target.value)} 
+                                className="flex-1 rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-xs text-white font-mono" 
+                            />
+                        </div>
+                    </div>
+                 </div>
+
+                 <div className="space-y-3">
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Font Style</label>
+                    <select 
+                        value={fontFamily} 
+                        onChange={e => setFontFamily(e.target.value)}
+                        className="w-full rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-white font-bold focus:outline-none capitalize"
+                    >
+                        <option value="Cinzel, serif">Cinzel (Classic Royal)</option>
+                        <option value="MedievalSharp, cursive">Medieval Sharp (Gothic)</option>
+                        <option value="Almendra, serif">Almendra (Ethereal)</option>
+                        <option value="'Georgia', serif">Standard Serif</option>
+                    </select>
+                 </div>
+
+                 <label className="flex items-center gap-3 cursor-pointer text-xs text-dnd-text/60 font-bold uppercase tracking-widest group">
+                    <div className={cn(
+                        "w-5 h-5 rounded border border-white/10 flex items-center justify-center transition-all",
+                        isVisible ? 'bg-dnd-gold border-dnd-gold' : 'bg-black/20'
+                    )}>
+                        {isVisible && <Icon name="check" className="w-3 h-3 text-white" />}
+                    </div>
+                    <input type="checkbox" className="hidden" checked={isVisible} onChange={e => setIsVisible(e.target.checked)} />
+                    Visible to Players
+                </label>
+
+                 <div className="flex justify-between items-center pt-8 border-t border-white/5">
+                     {isEditing && (
+                         <button 
+                            type="button" 
+                            onClick={handleDelete} 
+                            className="flex items-center gap-2 text-dnd-red hover:brightness-125 transition-all font-bold uppercase tracking-widest text-xs"
+                        >
+                            <Icon name="trash" className="w-4 h-4" />
+                            Remove
+                        </button>
+                     )}
+                     <button type="submit" disabled={loading} className="bg-dnd-gold hover:brightness-110 text-white font-bold py-4 px-10 rounded-2xl shadow-xl shadow-dnd-gold/20 transition-all disabled:opacity-50 uppercase tracking-widest text-xs ml-auto">
+                        {loading ? <Icon name="spinner" className="h-5 w-5 animate-spin"/> : 'Save Label'}
+                     </button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
 

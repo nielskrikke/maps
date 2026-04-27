@@ -20,7 +20,13 @@ export const uploadFile = async (bucket: string, path: string, file: File) => {
     upsert: true
   });
   
-  if (error) throw error;
+  if (error) {
+    console.error("Upload error details:", error);
+    if (error.message.includes('bucket not found') || (error as any).status === 404) {
+      throw new Error(`The storage bucket '${bucket}' was not found. Please run the SQL setup script to create it and set permissions.`);
+    }
+    throw error;
+  }
   
   const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(data.path);
   return publicUrl;
