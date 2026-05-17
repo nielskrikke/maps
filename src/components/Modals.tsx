@@ -5,11 +5,12 @@ import { createClient } from '@supabase/supabase-js';
 import { useAuth } from '../App';
 import { useAppContext } from '../contexts/AppContext';
 import { useItems, ApiItem } from './ItemProvider';
-import { Map as MapType, Pin, PinData, PinType, PinSectionType, PinSection, InventoryItem, Character, CharacterRelationship, MapTypeEnum, UserProfile, WikiPage } from '../types';
+import { Map as MapType, Pin, PinData, PinType, PinSectionType, PinSection, InventoryItem, Character, CharacterRelationship, MapTypeEnum, UserProfile, WikiPage, Clock, MapLabel } from '../types';
 import { Icon } from './Icons';
 import { RichTextEditor } from './RichTextEditor';
 import MapViewer from './MapViewer';
 import { cn } from '../lib/utils';
+import { ProgressClock } from './ProgressClock';
 
 // Helper to convert file to Base64
 const fileToBase64 = (file: File): Promise<string> => {
@@ -137,11 +138,12 @@ interface DMToolsModalProps {
     onPinTypeManagerOpen: () => void;
     onWikiPageManagerOpen: () => void;
     onPlayerManagerOpen: () => void;
+    onClockManagerOpen: () => void;
     onSignOut: () => void;
 }
 
 export const DMToolsModal: React.FC<DMToolsModalProps> = ({
-    isOpen, onClose, onMapManagerOpen, onCharacterManagerOpen, onPinTypeManagerOpen, onWikiPageManagerOpen, onPlayerManagerOpen, onSignOut
+    isOpen, onClose, onMapManagerOpen, onCharacterManagerOpen, onPinTypeManagerOpen, onWikiPageManagerOpen, onPlayerManagerOpen, onClockManagerOpen, onSignOut
 }) => {
     const handleAction = (action: () => void) => {
         onClose();
@@ -150,67 +152,77 @@ export const DMToolsModal: React.FC<DMToolsModalProps> = ({
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="DM Tools" maxWidthClass="max-w-md">
-            <div className="space-y-6">
-                <div className="space-y-3">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20 mb-4">Management</h3>
-                    <button onClick={() => handleAction(onMapManagerOpen)} className="w-full flex items-center gap-4 p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 transition-all group text-left shadow-lg">
-                        <div className="p-3 rounded-xl bg-dnd-dark text-dnd-gold group-hover:scale-110 transition-transform">
-                            <Icon name="map" className="w-6 h-6" />
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/10 mb-2 px-1">Management</h3>
+                    <button onClick={() => handleAction(onClockManagerOpen)} className="w-full flex items-center gap-4 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-dnd-gold/20 transition-all group text-left shadow-md">
+                        <div className="p-2.5 rounded-lg bg-dnd-dark text-dnd-gold group-hover:scale-105 transition-transform">
+                            <Icon name="clock" className="w-5 h-5" />
                         </div>
                         <div>
-                            <div className="font-bold text-white">Maps</div>
-                            <div className="text-xs text-dnd-text/40">Manage your maps and regions</div>
+                            <div className="font-bold text-sm text-white/90 group-hover:text-white transition-colors">Progress Clocks</div>
+                            <div className="text-[10px] text-dnd-text/30">Track complexity and time</div>
+                        </div>
+                    </button>
+
+                    <button onClick={() => handleAction(onMapManagerOpen)} className="w-full flex items-center gap-4 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-dnd-gold/20 transition-all group text-left shadow-md">
+                        <div className="p-2.5 rounded-lg bg-dnd-dark text-dnd-gold group-hover:scale-105 transition-transform">
+                            <Icon name="map" className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <div className="font-bold text-sm text-white/90 group-hover:text-white transition-colors">Maps</div>
+                            <div className="text-[10px] text-dnd-text/30">Manage your maps and regions</div>
                         </div>
                     </button>
                     
-                    <button onClick={() => handleAction(onCharacterManagerOpen)} className="w-full flex items-center gap-4 p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 transition-all group text-left shadow-lg">
-                        <div className="p-3 rounded-xl bg-dnd-dark text-dnd-gold group-hover:scale-110 transition-transform">
-                            <Icon name="user" className="w-6 h-6" />
+                    <button onClick={() => handleAction(onCharacterManagerOpen)} className="w-full flex items-center gap-4 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-dnd-gold/20 transition-all group text-left shadow-md">
+                        <div className="p-2.5 rounded-lg bg-dnd-dark text-dnd-gold group-hover:scale-105 transition-transform">
+                            <Icon name="user" className="w-5 h-5" />
                         </div>
                         <div>
-                            <div className="font-bold text-white">Characters</div>
-                            <div className="text-xs text-dnd-text/40">Manage NPCs and legends</div>
+                            <div className="font-bold text-sm text-white/90 group-hover:text-white transition-colors">Characters</div>
+                            <div className="text-[10px] text-dnd-text/30">Manage NPCs and legends</div>
                         </div>
                     </button>
 
-                    <button onClick={() => handleAction(onPinTypeManagerOpen)} className="w-full flex items-center gap-4 p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 transition-all group text-left shadow-lg">
-                        <div className="p-3 rounded-xl bg-dnd-dark text-dnd-gold group-hover:scale-110 transition-transform">
-                            <Icon name="tag" className="w-6 h-6" />
+                    <button onClick={() => handleAction(onPinTypeManagerOpen)} className="w-full flex items-center gap-4 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-dnd-gold/20 transition-all group text-left shadow-md">
+                        <div className="p-2.5 rounded-lg bg-dnd-dark text-dnd-gold group-hover:scale-105 transition-transform">
+                            <Icon name="tag" className="w-5 h-5" />
                         </div>
                         <div>
-                            <div className="font-bold text-white">Pin Types</div>
-                            <div className="text-xs text-dnd-text/40">Define the marks of your world</div>
+                            <div className="font-bold text-sm text-white/90 group-hover:text-white transition-colors">Pin Types</div>
+                            <div className="text-[10px] text-dnd-text/30">Define the marks of your world</div>
                         </div>
                     </button>
 
-                    <button onClick={() => handleAction(onWikiPageManagerOpen)} className="w-full flex items-center gap-4 p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 transition-all group text-left shadow-lg">
-                        <div className="p-3 rounded-xl bg-dnd-dark text-dnd-gold group-hover:scale-110 transition-transform">
-                            <Icon name="book" className="w-6 h-6" />
+                    <button onClick={() => handleAction(onWikiPageManagerOpen)} className="w-full flex items-center gap-4 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-dnd-gold/20 transition-all group text-left shadow-md">
+                        <div className="p-2.5 rounded-lg bg-dnd-dark text-dnd-gold group-hover:scale-105 transition-transform">
+                            <Icon name="book" className="w-5 h-5" />
                         </div>
                         <div>
-                            <div className="font-bold text-white">Wiki Pages</div>
-                            <div className="text-xs text-dnd-text/40">Manage the lore of your realm</div>
-                        </div>
-                    </button>
-                </div>
-
-                <div className="space-y-3 pt-6 border-t border-white/5">
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/20 mb-4">Users</h3>
-                    <button onClick={() => handleAction(onPlayerManagerOpen)} className="w-full flex items-center gap-4 p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 transition-all group text-left shadow-lg">
-                        <div className="p-3 rounded-xl bg-dnd-dark text-dnd-text/40 group-hover:text-white transition-colors">
-                            <Icon name="shield" className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <div className="font-bold text-white">User Manager</div>
-                            <div className="text-xs text-dnd-text/40">Manage players and their roles</div>
+                            <div className="font-bold text-sm text-white/90 group-hover:text-white transition-colors">Wiki Pages</div>
+                            <div className="text-[10px] text-dnd-text/30">Manage the lore of your realm</div>
                         </div>
                     </button>
                 </div>
 
-                <div className="pt-6 border-t border-white/5">
-                    <button onClick={onSignOut} className="w-full flex items-center justify-center gap-3 p-4 rounded-2xl bg-dnd-red/10 hover:bg-dnd-red/20 border border-dnd-red/20 text-dnd-red hover:brightness-125 transition-all font-bold uppercase tracking-widest text-xs shadow-xl shadow-dnd-red/10">
-                        <Icon name="logout" className="w-5 h-5" />
-                        Logout
+                <div className="space-y-2 pt-4 border-t border-white/5">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/10 mb-2 px-1">Users</h3>
+                    <button onClick={() => handleAction(onPlayerManagerOpen)} className="w-full flex items-center gap-4 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-dnd-gold/20 transition-all group text-left shadow-md">
+                        <div className="p-2.5 rounded-lg bg-dnd-dark text-dnd-text/20 group-hover:text-white transition-colors">
+                            <Icon name="shield" className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <div className="font-bold text-sm text-white/90 group-hover:text-white transition-colors">User Manager</div>
+                            <div className="text-[10px] text-dnd-text/30">Manage players and their roles</div>
+                        </div>
+                    </button>
+                </div>
+
+                <div className="pt-4 border-t border-white/5">
+                    <button onClick={onSignOut} className="w-full flex items-center justify-center gap-3 p-3 rounded-xl bg-white/[0.02] hover:bg-dnd-red/10 border border-white/5 hover:border-dnd-red/20 text-dnd-text/30 hover:text-dnd-red transition-all font-bold uppercase tracking-widest text-[10px]">
+                        <Icon name="logout" className="w-4 h-4" />
+                        Sign Out
                     </button>
                 </div>
             </div>
@@ -221,7 +233,7 @@ export const DMToolsModal: React.FC<DMToolsModalProps> = ({
 // --- USER SETTINGS MODAL ---
 interface UserSettingsModalProps { isOpen: boolean; onClose: () => void; }
 export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, onClose }) => {
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
     const [username, setUsername] = useState('');
     const [imageUrl, setImageUrl] = useState('');
     const [loading, setLoading] = useState(false);
@@ -312,11 +324,21 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
                     </div>
                 )}
 
-                <div className="flex justify-end gap-4 pt-6 border-t border-white/5">
-                    <button type="button" onClick={onClose} className="text-dnd-text/40 hover:text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all">Cancel</button>
-                    <button type="submit" disabled={loading} className="bg-dnd-gold hover:brightness-110 text-white font-bold px-8 py-3 rounded-2xl shadow-xl shadow-dnd-gold/20 disabled:opacity-50 transition-all uppercase tracking-widest text-xs">
-                        {loading ? <Icon name="spinner" className="w-5 h-5 animate-spin"/> : 'Save Settings'}
+                <div className="flex justify-between items-center pt-6 border-t border-white/5">
+                    <button 
+                        type="button" 
+                        onClick={() => signOut()} 
+                        className="flex items-center gap-2 text-dnd-text/20 hover:text-dnd-red transition-all font-bold uppercase tracking-widest text-[10px]"
+                    >
+                        <Icon name="logout" className="w-4 h-4" />
+                        Sign Out
                     </button>
+                    <div className="flex gap-4">
+                        <button type="button" onClick={onClose} className="text-dnd-text/40 hover:text-white px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all">Cancel</button>
+                        <button type="submit" disabled={loading} className="bg-dnd-gold hover:brightness-110 text-white font-bold px-8 py-3 rounded-2xl shadow-xl shadow-dnd-gold/20 disabled:opacity-50 transition-all uppercase tracking-widest text-xs">
+                            {loading ? <Icon name="spinner" className="w-5 h-5 animate-spin"/> : 'Save Settings'}
+                        </button>
+                    </div>
                 </div>
             </form>
         </Modal>
@@ -2098,6 +2120,7 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
     const [parentId, setParentId] = useState<string>('');
     const [content, setContent] = useState('');
     const [sections, setSections] = useState<PinSection[]>([]);
+    const [headerImageUrl, setHeaderImageUrl] = useState('');
     const [isVisible, setIsVisible] = useState(true);
     const [loading, setLoading] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -2111,13 +2134,15 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
     const resetForm = () => {
         setEditingPage(null); setIsEditing(false);
         setTitle(''); setTypeId(pinTypes[0]?.id || ''); setParentId('');
-        setContent(''); setSections([]); setIsVisible(true);
+        setContent(''); setSections([]); setHeaderImageUrl(''); setIsVisible(true);
     };
 
     const handleEdit = (p: WikiPage) => {
         setEditingPage(p); setIsEditing(true);
         setTitle(p.title || ''); setTypeId(p.type_id || ''); setParentId(p.parent_id || '');
-        setContent(p.content || ''); setSections(p.sections || []); setIsVisible(p.is_visible ?? true);
+        setContent(p.content || ''); setSections(p.sections || []); 
+        setHeaderImageUrl(p.header_image_url || '');
+        setIsVisible(p.is_visible ?? true);
     };
 
     useEffect(() => {
@@ -2171,6 +2196,7 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
             parent_id: parentId || null,
             content: content || '',
             sections: sections || [],
+            header_image_url: headerImageUrl || null,
             is_visible: isVisible,
         };
 
@@ -2283,6 +2309,37 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                 />
                             </div>
                             <div className="space-y-3">
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Header Background Image (URL)</label>
+                                <div className="flex gap-3">
+                                    <input 
+                                        type="text" 
+                                        value={headerImageUrl} 
+                                        onChange={e => setHeaderImageUrl(e.target.value)} 
+                                        placeholder="Optional full-width image..."
+                                        className="flex-1 rounded-2xl border border-white/5 bg-black/20 px-5 py-4 text-xs text-dnd-text/60 focus:outline-none focus:border-dnd-gold/50 transition-all shadow-inner" 
+                                    />
+                                    <label className="cursor-pointer p-4 bg-white/5 rounded-2xl hover:bg-white/10 border border-white/5 transition-all shadow-lg">
+                                        <Icon name="upload" className="w-5 h-5 text-dnd-gold"/>
+                                        <input type="file" className="hidden" accept="image/*" onChange={async (e) => {
+                                            if(e.target.files?.[0] && user) {
+                                                const file = e.target.files[0];
+                                                const fileExt = file.name.split('.').pop();
+                                                const fileName = `wiki_header_${Date.now()}.${fileExt}`;
+                                                try {
+                                                    const url = await uploadFile('assets', `${user.id}/${fileName}`, file);
+                                                    setHeaderImageUrl(url);
+                                                } catch (err) {
+                                                    setError({ message: "Upload failed", details: err });
+                                                }
+                                            }
+                                        }} />
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-3">
                                 <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Page Type</label>
                                 <select 
                                     value={typeId} 
@@ -2292,9 +2349,6 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                     {pinTypes.map(pt => <option key={pt.id} value={pt.id}>{pt.emoji} {pt.name}</option>)}
                                 </select>
                             </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-3">
                                 <label className="block text-[10px] font-bold uppercase tracking-widest text-dnd-text/40">Parent Page (Nesting)</label>
                                 <select 
@@ -2306,21 +2360,22 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
                                     {wikiPages.filter(p => p.id !== editingPage?.id).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                                 </select>
                             </div>
-                            <div className="flex items-center pt-8">
-                                <label className={cn(
-                                    "flex items-center gap-3 cursor-pointer text-[10px] font-bold uppercase tracking-widest transition-all",
-                                    isVisible ? 'text-dnd-gold' : 'text-dnd-text/20'
+                        </div>
+
+                        <div className="flex items-center">
+                            <label className={cn(
+                                "flex items-center gap-3 cursor-pointer text-[10px] font-bold uppercase tracking-widest transition-all",
+                                isVisible ? 'text-dnd-gold' : 'text-dnd-text/20'
+                            )}>
+                                <div className={cn(
+                                    "w-6 h-6 rounded-lg border flex items-center justify-center transition-all",
+                                    isVisible ? 'bg-dnd-gold/20 border-dnd-gold' : 'bg-black/20 border-white/5'
                                 )}>
-                                    <div className={cn(
-                                        "w-6 h-6 rounded-lg border flex items-center justify-center transition-all",
-                                        isVisible ? 'bg-dnd-gold/20 border-dnd-gold' : 'bg-black/20 border-white/5'
-                                    )}>
-                                        {isVisible && <Icon name="check" className="w-4 h-4 text-dnd-gold" />}
-                                    </div>
-                                    <input type="checkbox" checked={isVisible} onChange={e => setIsVisible(e.target.checked)} className="hidden" />
-                                    Visible to Players
-                                </label>
-                            </div>
+                                    {isVisible && <Icon name="check" className="w-4 h-4 text-dnd-gold" />}
+                                </div>
+                                <input type="checkbox" checked={isVisible} onChange={e => setIsVisible(e.target.checked)} className="hidden" />
+                                Visible to Players
+                            </label>
                         </div>
 
                         <div className="space-y-3">
@@ -2947,6 +3002,219 @@ export const LabelEditorModal: React.FC<LabelEditorModalProps> = ({ labelData, o
                      </button>
                 </div>
             </form>
+        </Modal>
+    );
+};
+
+// --- CLOCK MANAGER MODAL ---
+interface ClockManagerModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+export const ClockManagerModal: React.FC<ClockManagerModalProps> = ({ isOpen, onClose }) => {
+    const { user } = useAuth();
+    const { clocks, updateLocalClock, removeLocalItem, setError } = useAppContext();
+    const [title, setTitle] = useState('');
+    const [segments, setSegments] = useState(4);
+    const [clockCount, setClockCount] = useState(1);
+    const [loading, setLoading] = useState(false);
+
+    const handleCreateClock = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user) return;
+        setLoading(true);
+
+        const newClock = {
+            title,
+            segments,
+            clock_count: clockCount,
+            filled: 0,
+            is_visible: false,
+            created_by: user.id
+        };
+
+        try {
+            const { data, error } = await supabase.from('progress_clocks').insert(newClock).select().single();
+            if (error) throw error;
+            if (data) {
+                updateLocalClock(data as Clock);
+                setTitle('');
+                setSegments(4);
+                setClockCount(1);
+            }
+        } catch (err: any) {
+            console.error(err);
+            setError({ message: "Error creating clock", details: err });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleUpdateClock = async (clock: Clock, newFilled: number) => {
+        const { error } = await supabase.from('progress_clocks').update({ filled: newFilled }).eq('id', clock.id);
+        if (!error) {
+            updateLocalClock({ ...clock, filled: newFilled });
+        } else {
+            setError({ message: "Error updating clock", details: error });
+        }
+    };
+
+    const handleDeleteClock = async (id: string) => {
+        const { error } = await supabase.from('progress_clocks').delete().eq('id', id);
+        if (!error) {
+            removeLocalItem('clock', id);
+        } else {
+            setError({ message: "Error deleting clock", details: error });
+        }
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Progress Clocks" maxWidthClass="max-w-4xl">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Create Section */}
+                <div className="lg:col-span-1 glass-panel p-6 border-white/5 space-y-6">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-gold mb-4 flex items-center gap-2">
+                        <Icon name="plus" className="w-3 h-3" />
+                        Create New Clock
+                    </h3>
+                    
+                    <form onSubmit={handleCreateClock} className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] uppercase tracking-widest text-dnd-text/40 font-bold">Purpose</label>
+                            <input 
+                                value={title}
+                                onChange={e => setTitle(e.target.value)}
+                                className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-dnd-gold/50 transition-all font-serif"
+                                placeholder="Gaurds Alerted..."
+                                required
+                            />
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <label className="text-[10px] uppercase tracking-widest text-dnd-text/40 font-bold">Size (Segments)</label>
+                            <div className="grid grid-cols-4 gap-2">
+                                {[4, 6, 8, 12].map(size => (
+                                    <button
+                                        key={size}
+                                        type="button"
+                                        onClick={() => setSegments(size)}
+                                        className={cn(
+                                            "py-2 rounded-lg border text-xs font-bold transition-all",
+                                            segments === size 
+                                                ? "bg-dnd-gold/20 border-dnd-gold text-dnd-gold shadow-[0_0_10px_rgba(201,173,106,0.1)]" 
+                                                : "bg-white/5 border-white/5 text-dnd-text/40 hover:bg-white/10"
+                                        )}
+                                    >
+                                        {size}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-[10px] uppercase tracking-widest text-dnd-text/40 font-bold">Clock Circles</label>
+                                <span className="text-xs font-bold text-dnd-gold">{clockCount}</span>
+                            </div>
+                            <input 
+                                type="range"
+                                min="1"
+                                max="12"
+                                step="1"
+                                value={clockCount}
+                                onChange={e => setClockCount(parseInt(e.target.value))}
+                                className="w-full accent-dnd-gold"
+                            />
+                            <div className="flex justify-between text-[8px] text-dnd-text/20 font-bold uppercase tracking-tighter">
+                                <span>Simple</span>
+                                <span>World Event</span>
+                            </div>
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            disabled={loading || !title}
+                            className="w-full py-4 bg-dnd-gold hover:brightness-110 text-white font-bold rounded-xl shadow-lg shadow-dnd-gold/20 transition-all disabled:opacity-50 uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+                        >
+                            {loading ? <Icon name="spinner" className="w-4 h-4 animate-spin" /> : <><Icon name="plus" className="w-4 h-4" /> Create Clock</>}
+                        </button>
+                    </form>
+                </div>
+
+                {/* List Section */}
+                <div className="lg:col-span-2 space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                    {clocks.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-dnd-text/20 p-12 text-center">
+                            <Icon name="clock" className="w-16 h-16 opacity-10 mb-4" />
+                            <p className="text-sm font-medium italic">No active clocks. The thread of fate remains unspooled.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {clocks.map(clock => (
+                                <div key={clock.id} className="glass-panel p-5 border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all group relative overflow-hidden">
+                                     <div className="flex items-start justify-between gap-4 mb-4">
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-serif font-bold text-white text-lg leading-tight truncate" title={clock.title}>
+                                                {clock.title}
+                                            </h4>
+                                            <p className="text-[10px] text-dnd-text/40 uppercase tracking-widest font-bold mt-1">
+                                                {clock.segments} Segments • {clock.clock_count} {clock.clock_count === 1 ? 'Pie' : 'Pies'}
+                                            </p>
+                                        </div>
+                                        <button 
+                                            onClick={() => handleDeleteClock(clock.id)}
+                                            className="p-2 rounded-lg bg-dnd-red/10 text-dnd-red opacity-0 group-hover:opacity-100 transition-all hover:bg-dnd-red/20"
+                                        >
+                                            <Icon name="trash" className="w-4 h-4" />
+                                        </button>
+                                     </div>
+
+                                     <div className="flex flex-col items-center gap-6 py-4">
+                                        <ProgressClock 
+                                            segments={clock.segments} 
+                                            clockCount={clock.clock_count}
+                                            filled={clock.filled}
+                                            size={60}
+                                            onClick={() => {
+                                                const maxFilled = clock.segments * clock.clock_count;
+                                                const next = (clock.filled + 1) % (maxFilled + 1);
+                                                handleUpdateClock(clock, next);
+                                            }}
+                                        />
+                                        
+                                        <div className="flex items-center gap-2">
+                                            <button 
+                                                onClick={() => handleUpdateClock(clock, Math.max(0, clock.filled - 1))}
+                                                className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white transition-all disabled:opacity-20"
+                                                disabled={clock.filled === 0}
+                                            >
+                                                <Icon name="minus" className="w-4 h-4" />
+                                            </button>
+                                            <div className="w-16 text-center">
+                                                <span className="text-2xl font-black text-dnd-gold font-serif">{clock.filled}</span>
+                                                <span className="text-sm text-dnd-text/20 font-bold"> / {clock.segments * clock.clock_count}</span>
+                                            </div>
+                                            <button 
+                                                onClick={() => handleUpdateClock(clock, Math.min(clock.segments * clock.clock_count, clock.filled + 1))}
+                                                className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-white transition-all disabled:opacity-20"
+                                                disabled={clock.filled === clock.segments * clock.clock_count}
+                                            >
+                                                <Icon name="plus" className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                     </div>
+
+                                     {/* Background decoration */}
+                                     <div className="absolute -bottom-4 -right-4 opacity-[0.02] pointer-events-none group-hover:scale-110 transition-transform">
+                                         <Icon name="clock" className="w-24 h-24" />
+                                     </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
         </Modal>
     );
 };

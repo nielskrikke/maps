@@ -119,6 +119,7 @@ export type WikiPage = {
   parent_id: string | null;
   content: string;
   sections: PinSection[]; // Reuse PinSection for structured content
+  header_image_url?: string; // Optional full-width background image
   is_visible: boolean;
   created_by: string;
   created_at: string;
@@ -161,6 +162,18 @@ export type Comment = {
   is_private: boolean;
   created_at: string;
   users: { username: string }; // For joined data
+};
+
+export type Clock = {
+  id: string;
+  title: string;
+  segments: number; // segments per pie
+  clock_count: number; // number of pies
+  filled: number; // total filled
+  color?: string;
+  is_visible: boolean;
+  created_by: string;
+  created_at: string;
 };
 
 export type AppUser = User & { profile: UserProfile };

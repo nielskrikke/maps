@@ -1,11 +1,12 @@
 import React, { createContext, useContext } from 'react';
-import { Map as MapType, Pin, PinType, Character, WikiPage, MapLabel } from '../types';
+import { Map as MapType, Pin, PinType, Character, WikiPage, MapLabel, Clock } from '../types';
 
 export type AppContextType = {
     maps: MapType[];
     pinTypes: PinType[];
     pins: Pin[];
     labels: MapLabel[];
+    clocks: Clock[];
     characters: Character[];
     wikiPages: WikiPage[];
     isPlayerView: boolean;
@@ -16,10 +17,11 @@ export type AppContextType = {
     updateLocalPin: (pin: Pin) => void;
     updateLocalMap: (map: MapType) => void;
     updateLocalLabel: (label: MapLabel) => void;
+    updateLocalClock: (clock: Clock) => void;
     updateLocalCharacter: (char: Character) => void;
     updateLocalPinType: (pt: PinType) => void;
     updateLocalWikiPage: (page: WikiPage) => void;
-    removeLocalItem: (type: 'map'|'pin'|'character'|'pintype'|'wikipage'|'label', id: string) => void;
+    removeLocalItem: (type: 'map'|'pin'|'character'|'pintype'|'wikipage'|'label'|'clock', id: string) => void;
     expandedWikiSection: 'wiki' | 'characters' | 'locations';
     setExpandedWikiSection: (section: 'wiki' | 'characters' | 'locations') => void;
 };

@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../App';
+import { supabase } from '../services/supabase';
 import { useAppContext } from '../contexts/AppContext';
 import { Map as MapType, MapTypeEnum, Pin, Character, WikiPage } from '../types';
 import { Icon } from './Icons';
@@ -28,9 +29,20 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
     const { user, signOut } = useAuth();
     const { 
-        maps, pins, pinTypes, characters, wikiPages, isPlayerView, setIsPlayerView,
+        maps, pins, pinTypes, characters, wikiPages, clocks, updateLocalClock, isPlayerView, setIsPlayerView,
         expandedWikiSection, setExpandedWikiSection 
     } = useAppContext();
+
+    const handleIncrementClock = async (clock: any, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const maxFilled = clock.segments * clock.clock_count;
+        const next = (clock.filled + 1) % (maxFilled + 1);
+        
+        const { error } = await supabase.from('progress_clocks').update({ filled: next }).eq('id', clock.id);
+        if (!error) {
+            updateLocalClock({ ...clock, filled: next });
+        }
+    };
     const [expandedMapIds, setExpandedMapIds] = useState<Set<string>>(new Set());
     const [expandedWikiIds, setExpandedWikiIds] = useState<Set<string>>(new Set());
     
@@ -331,25 +343,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </button>
             </div>
 
-            <button 
-                onClick={onUserSettingsOpen}
-                className="w-full flex items-center space-x-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 p-2.5 shadow-inner transition-all group text-left relative z-10"
-                title="Profile Settings"
-            >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-dnd-dark border border-white/10 overflow-hidden text-dnd-gold group-hover:border-dnd-gold/50 transition-colors shadow-xl">
-                    {user?.profile.image_url ? (
-                        <img src={user.profile.image_url} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                        <span className="font-serif font-bold text-lg">{user?.profile.username.charAt(0).toUpperCase()}</span>
-                    )}
-                </div>
-                <div className="min-w-0 flex-1">
-                    <p className="font-bold truncate text-sm text-white group-hover:text-dnd-gold transition-colors">{user?.profile.username}</p>
-                    <p className="text-[9px] text-dnd-text/40 uppercase tracking-widest font-bold">{user?.profile.role}</p>
-                </div>
-                <Icon name="settings" className="w-3.5 h-3.5 text-dnd-text/20 group-hover:text-dnd-gold opacity-0 group-hover:opacity-100 transition-all" />
-            </button>
-
             {/* Wiki Search Bar */}
             {currentView === 'wiki' && (
                 <div 
@@ -573,10 +566,88 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
             </nav>
 
-            {user?.profile.role === 'DM' && (
-                <div className="mt-4 pt-4 border-t border-white/5 relative z-10">
-                    <h2 className="text-[9px] font-bold tracking-[0.3em] text-dnd-text/20 uppercase px-2 mb-3">DM Oversight</h2>
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 shadow-xl">
+            {user?.profile.role === 'DM' && clocks.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-white/5 relative z-10 px-1">
+                    <h2 className="text-[9px] font-bold tracking-[0.3em] text-dnd-text/20 uppercase px-2 mb-3">Active Clocks</h2>
+                    <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                        {clocks.map(clock => (
+                            <div 
+                                key={clock.id}
+                                onClick={(e) => handleIncrementClock(clock, e)}
+                                className="group/clock relative flex flex-col gap-2 p-3 rounded-xl bg-black/40 border border-white/5 hover:border-dnd-gold/40 hover:bg-black/60 transition-all cursor-pointer shadow-lg w-full"
+                                title={`Click to increment: ${clock.filled}/${clock.segments * clock.clock_count}`}
+                            >
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[10px] font-serif font-bold text-white/90 truncate flex-1 group-hover/clock:text-dnd-gold transition-colors">
+                                        {clock.title}
+                                    </span>
+                                    <span className="text-[8px] font-bold text-dnd-text/30 group-hover/clock:text-dnd-gold/60 transition-colors">
+                                        {clock.filled}/{clock.segments * clock.clock_count}
+                                    </span>
+                                </div>
+                                <div className="flex gap-1.5">
+                                    {Array.from({ length: clock.clock_count }).map((_, i) => {
+                                        const filledInThisClock = Math.max(0, Math.min(clock.segments, clock.filled - (i * clock.segments)));
+                                        const completion = (filledInThisClock / clock.segments) * 100;
+                                        return (
+                                            <div key={i} className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                                                <div 
+                                                    className="h-full bg-dnd-gold shadow-[0_0_8px_rgba(201,173,106,0.3)] transition-all duration-500"
+                                                    style={{ width: `${completion}%` }}
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {user?.profile.role === 'Player' ? (
+                <div className="mt-4 border-t border-white/5 pt-4 relative z-10">
+                    <button 
+                        onClick={onUserSettingsOpen}
+                        className="w-full flex items-center space-x-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 p-2.5 shadow-inner transition-all group text-left relative z-10"
+                        title="Profile Settings"
+                    >
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-dnd-dark border border-white/10 overflow-hidden text-dnd-gold group-hover:border-dnd-gold/50 transition-colors shadow-xl text-xs">
+                            {user?.profile.image_url ? (
+                                <img src={user.profile.image_url} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                                <span className="font-serif font-bold">{user?.profile.username.charAt(0).toUpperCase()}</span>
+                            )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="font-bold truncate text-xs text-white group-hover:text-dnd-gold transition-colors">{user?.profile.username}</p>
+                            <p className="text-[8px] text-dnd-text/40 uppercase tracking-widest font-bold">Player</p>
+                        </div>
+                        <Icon name="settings" className="w-3.5 h-3.5 text-dnd-text/20 group-hover:text-dnd-gold transition-all" />
+                    </button>
+                </div>
+            ) : (
+                <div className="mt-4 pt-4 border-t border-white/5 relative z-10 space-y-3">
+                    <button 
+                        onClick={onUserSettingsOpen}
+                        className="w-full flex items-center space-x-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 p-2.5 shadow-inner transition-all group text-left relative z-10"
+                        title="Profile Settings"
+                    >
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-dnd-dark border border-white/10 overflow-hidden text-dnd-gold group-hover:border-dnd-gold/50 transition-colors shadow-xl text-xs">
+                            {user?.profile.image_url ? (
+                                <img src={user.profile.image_url} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            ) : (
+                                <span className="font-serif font-bold">{user?.profile.username.charAt(0).toUpperCase()}</span>
+                            )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="font-bold truncate text-xs text-white group-hover:text-dnd-gold transition-colors">{user?.profile.username}</p>
+                            <p className="text-[8px] text-dnd-text/40 uppercase tracking-widest font-bold">DM</p>
+                        </div>
+                        <Icon name="settings" className="w-3.5 h-3.5 text-dnd-text/20 group-hover:text-dnd-gold transition-all" />
+                    </button>
+
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5 shadow-xl">
                         <button 
                             onClick={onDMToolsOpen}
                             className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 hover:text-dnd-gold transition-colors px-1"
@@ -600,15 +671,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
-            
-            {user?.profile.role === 'Player' && (
-                <div className="mt-6 border-t border-white/5 pt-6 relative z-10">
-                    <button onClick={signOut} className="flex w-full items-center space-x-3 rounded-2xl px-4 py-3 text-left text-sm font-bold text-dnd-text/40 hover:bg-dnd-red/10 hover:text-dnd-red transition-all">
-                        <Icon name="logout" className="h-5 w-5" />
-                        <span>Logout</span>
-                    </button>
                 </div>
             )}
         </aside>

@@ -577,57 +577,113 @@ const Wiki: React.FC<WikiProps> = ({
         const linkedPins = pins.filter(p => p.wiki_page_id === page.id);
 
         return (
-            <div className="space-y-10 max-w-5xl mx-auto pb-24">
-                {/* Header */}
-                <div className="border-b border-white/5 pb-8">
-                    <div className="flex items-center gap-6 mb-6">
-                        <div className="flex items-center justify-center w-14 h-14 rounded-2xl shadow-2xl text-2xl ring-2 ring-white/10" style={{ backgroundColor: type?.color || '#555' }}>
-                            {type?.emoji || '📄'}
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-4">
-                                <h1 className="text-3xl font-serif font-bold text-white tracking-tight">{page.title}</h1>
-                                {isDM && !isPlayerView && onEditWikiPage && (
-                                    <button 
-                                        onClick={() => onEditWikiPage(page)}
-                                        className="p-1.5 bg-white/5 hover:bg-white/10 rounded-xl text-dnd-gold transition-all border border-white/5 shadow-lg"
-                                        title="Edit Wiki Page"
-                                    >
-                                        <Icon name="pencil" className="w-4 h-4" />
-                                    </button>
-                                )}
+            <div className="max-w-5xl mx-auto pb-24 space-y-10">
+                {/* Header Section */}
+                <div className={cn(
+                    "relative overflow-hidden rounded-[2.5rem] border border-white/5",
+                    page.header_image_url ? "min-h-[400px] flex flex-col justify-end" : "pb-8 border-b border-t-0 border-x-0 rounded-none"
+                )}>
+                    {page.header_image_url && (
+                        <>
+                            <div className="absolute inset-0 z-0">
+                                <img 
+                                    src={page.header_image_url} 
+                                    className="w-full h-full object-cover" 
+                                    alt="" 
+                                    referrerPolicy="no-referrer"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-dnd-dark via-dnd-dark/60 to-transparent z-10" />
+                                <div className="absolute inset-0 bg-black/40 z-5" />
                             </div>
-                            <div className="flex items-center gap-3 mt-2">
-                                <span className="bg-white/5 px-3 py-1 rounded-lg text-[10px] text-dnd-gold border border-white/5 uppercase tracking-[0.2em] font-bold">{type?.name || 'Page'}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {page.content && stripHtml(page.content).trim().length > 0 && (
-                         <div 
-                            className="rich-text-content max-w-none text-dnd-text/80 text-xl leading-relaxed glass-panel p-8 rounded-2xl border border-white/5 shadow-2xl font-medium"
-                            dangerouslySetInnerHTML={{ __html: page.content }}
-                         />
+                        </>
                     )}
+
+                    <div className={cn(
+                        "relative z-20",
+                        page.header_image_url ? "p-10 md:p-16" : ""
+                    )}>
+                        <div className="flex flex-col md:flex-row md:items-center gap-6 mb-8">
+                            <div className="flex items-center justify-center w-16 h-16 rounded-2xl shadow-2xl text-3xl ring-2 ring-white/10 shrink-0" style={{ backgroundColor: type?.color || '#555' }}>
+                                {type?.emoji || '📄'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-4 mb-2">
+                                    <h1 className={cn(
+                                        "text-4xl md:text-5xl font-serif font-bold tracking-tight",
+                                        page.header_image_url ? "text-white drop-shadow-2xl" : "text-white"
+                                    )}>
+                                        {page.title}
+                                    </h1>
+                                    {isDM && !isPlayerView && onEditWikiPage && (
+                                        <button 
+                                            onClick={() => onEditWikiPage(page)}
+                                            className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-dnd-gold transition-all border border-white/5 shadow-lg backdrop-blur-md"
+                                            title="Edit Wiki Page"
+                                        >
+                                            <Icon name="pencil" className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <span className="bg-dnd-gold/20 backdrop-blur-md px-3 py-1 rounded-lg text-[10px] text-dnd-gold border border-dnd-gold/20 uppercase tracking-[0.2em] font-bold">
+                                        {type?.name || 'Page'}
+                                    </span>
+                                    
+                                    {linkedPins.length > 0 && (
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {linkedPins.map(pin => {
+                                                const pMap = maps.find(m => m.id === pin.map_id);
+                                                const pType = pinTypes.find(t => t.id === pin.pin_type_id);
+                                                return (
+                                                    <button 
+                                                        key={pin.id} 
+                                                        onClick={() => onLocatePin(pin)}
+                                                        className="flex items-center gap-2 bg-black/40 hover:bg-white/10 px-2.5 py-1.5 rounded-lg border border-white/5 hover:border-dnd-gold/40 transition-all group backdrop-blur-md"
+                                                        title={`View on ${pMap?.name || 'Map'}`}
+                                                    >
+                                                        <span className="text-xs shrink-0">{pType?.emoji || '📍'}</span>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-white/40 group-hover:text-dnd-gold transition-colors truncate max-w-[120px]">{pin.title}</span>
+                                                        <Icon name="map" className="w-2.5 h-2.5 text-dnd-text/20 group-hover:text-dnd-gold transition-colors" />
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {page.content && stripHtml(page.content).trim().length > 0 && (
+                            <div 
+                                className={cn(
+                                    "rich-text-content max-w-none text-lg md:text-xl leading-relaxed font-medium transition-all",
+                                    page.header_image_url 
+                                        ? "text-white/90 drop-shadow-lg" 
+                                        : "text-dnd-text/80 glass-panel p-8 rounded-2xl border border-white/5 shadow-2xl"
+                                )}
+                                dangerouslySetInnerHTML={{ __html: page.content }}
+                            />
+                        )}
+                    </div>
                 </div>
 
-                {/* Sub-pages */}
+                {/* Sub-pages - Compact Version */}
                 {subPages.length > 0 && (
                     <div className="mb-10">
-                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 mb-5 flex items-center gap-2">
-                            <Icon name="book" className="w-4 h-4"/> Nested Pages
+                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 mb-3 flex items-center gap-2 px-1">
+                            <Icon name="book" className="w-3.5 h-3.5"/> Nested Lore
                         </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="flex flex-wrap gap-2">
                             {subPages.map(sp => (
                                 <button 
                                     key={sp.id} 
                                     onClick={() => onSelectWikiPage(sp)}
-                                    className="flex items-center gap-4 bg-black/30 p-4 rounded-xl border border-white/5 hover:bg-white/5 hover:border-dnd-gold/30 transition-all group text-left"
+                                    className="flex items-center gap-2.5 bg-black/40 px-3 py-2 rounded-xl border border-white/5 hover:bg-white/5 hover:border-dnd-gold/30 transition-all group shadow-sm"
                                 >
-                                    <span className="text-2xl">{pinTypes.find(t => t.id === sp.type_id)?.emoji || '📄'}</span>
-                                    <div>
-                                        <div className="font-bold text-white group-hover:text-dnd-gold transition-colors">{sp.title}</div>
-                                        <div className="text-[10px] text-dnd-text/40 uppercase tracking-widest font-bold">{pinTypes.find(t => t.id === sp.type_id)?.name}</div>
+                                    <span className="text-lg shrink-0">{pinTypes.find(t => t.id === sp.type_id)?.emoji || '📄'}</span>
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-xs text-white/80 group-hover:text-dnd-gold transition-colors">{sp.title}</span>
+                                        <span className="text-[8px] text-dnd-text/30 uppercase tracking-widest font-black leading-none">{pinTypes.find(t => t.id === sp.type_id)?.name}</span>
                                     </div>
                                 </button>
                             ))}
@@ -635,32 +691,6 @@ const Wiki: React.FC<WikiProps> = ({
                     </div>
                 )}
 
-                {/* Linked Pins */}
-                {linkedPins.length > 0 && (
-                    <div className="mb-10">
-                        <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 mb-5 flex items-center gap-2">
-                            <Icon name="map" className="w-4 h-4"/> Manifestations on Map
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {linkedPins.map(pin => {
-                                const pMap = maps.find(m => m.id === pin.map_id);
-                                return (
-                                    <button 
-                                        key={pin.id} 
-                                        onClick={() => onLocatePin(pin)}
-                                        className="flex items-center gap-4 bg-black/30 p-4 rounded-xl border border-white/5 hover:bg-white/5 hover:border-dnd-gold/30 transition-all group text-left"
-                                    >
-                                        <span className="text-2xl">{pinTypes.find(t => t.id === pin.pin_type_id)?.emoji || '📍'}</span>
-                                        <div>
-                                            <div className="font-bold text-white group-hover:text-dnd-gold transition-colors">{pin.title}</div>
-                                            <div className="text-[10px] text-dnd-text/40 uppercase tracking-widest font-bold">{pMap?.name || 'Unknown Map'}</div>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
 
                 {/* Sections */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

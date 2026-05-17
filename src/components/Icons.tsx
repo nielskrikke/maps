@@ -9,9 +9,14 @@ export type IconName =
   | 'backpack' | 'search' | 'book' | 'scroll' | 'compass' | 'external' 
   | 'settings' | 'view_apps' | 'visibility' | 'visibility_off' | 'check'
   | 'bold' | 'italic' | 'underline' | 'list' | 'list-ordered' | 'heading1' | 'heading2' | 'heading3' | 'type'
-  | 'quote' | 'calendar' | 'music' | 'info' | 'alert-triangle' | 'volume2';
+  | 'quote' | 'calendar' | 'music' | 'info' | 'alert-triangle' | 'volume2' | 'clock';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
+  name: IconName | string;
+  title?: string;
+}
+
+interface IconParams extends React.SVGProps<SVGSVGElement> {
   name: IconName | string;
   title?: string;
 }
@@ -21,6 +26,7 @@ const iconPaths: Record<string, React.ReactNode> = {
   globe: <><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20M12 2a14.5 14.5 0 0 1 0 20M2 12h20"/></>,
   castle: <path d="M22 20v-9H2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2ZM18 11V4H6v7M15 11V4M9 11V4M10 22v-4a2 2 0 0 1 4 0v4" />,
   skull: <><path d="M17.5 11a5.5 5.5 0 1 0-11 0c0 3.037 2.463 5.5 5.5 5.5s5.5-2.463 5.5-5.5Z"/><path d="M12 16.5v4"/><path d="M8 21h8"/><path d="M9 11a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm8 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm-5 3a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/></>,
+  clock: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
   pin: <><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></>,
   shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />,
   user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,

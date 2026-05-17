@@ -1,5 +1,5 @@
 {
   "name": "Atlas",
-  "description": "An interactive mapping application for D&D Dungeon Masters. Upload maps, add descriptive pins, and progressively reveal areas with a Fog of War feature for an immersive player experience.",
+  "description": "An interactive mapping application for D&D Dungeon Masters. Features include multi-layered maps, descriptive pins, Fog of War, and Progress Clocks to track complex world events and campaign tension.",
   "requestFramePermissions": []
 }

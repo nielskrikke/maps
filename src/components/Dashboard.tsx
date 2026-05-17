@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../App';
-import { Map as MapType, Pin, PinType, Character, WikiPage, MapLabel } from '../types';
+import { Map as MapType, Pin, PinType, Character, WikiPage, MapLabel, Clock } from '../types';
 import { supabase } from '../services/supabase';
 import Sidebar from './Sidebar';
 import MapViewer from './MapViewer';
 import PinDetails from './PinDetails';
 import Wiki from './Wiki';
-import { MapManagerModal, PinEditorModal, PinTypeManagerModal, PlayerManagerModal, CharacterManagerModal, DMToolsModal, UserSettingsModal, WikiPageManagerModal, LabelEditorModal } from './Modals';
+import { MapManagerModal, PinEditorModal, PinTypeManagerModal, PlayerManagerModal, CharacterManagerModal, DMToolsModal, UserSettingsModal, WikiPageManagerModal, LabelEditorModal, ClockManagerModal } from './Modals';
 import { Icon } from './Icons';
 import { AppContext } from '../contexts/AppContext';
 
@@ -17,6 +17,7 @@ const Dashboard: React.FC = () => {
     const [pinTypes, setPinTypes] = useState<PinType[]>([]);
     const [pins, setPins] = useState<Pin[]>([]);
     const [labels, setLabels] = useState<MapLabel[]>([]);
+    const [clocks, setClocks] = useState<Clock[]>([]);
     const [characters, setCharacters] = useState<Character[]>([]);
     const [wikiPages, setWikiPages] = useState<WikiPage[]>([]);
     const [error, setError] = useState<{ message: string; details?: any } | null>(null);
@@ -45,6 +46,7 @@ const Dashboard: React.FC = () => {
     const [isCharacterManagerOpen, setCharacterManagerOpen] = useState(false);
     const [isWikiPageManagerOpen, setWikiPageManagerOpen] = useState(false);
     const [isWikiPageTypeManagerOpen, setWikiPageTypeManagerOpen] = useState(false);
+    const [isClockManagerOpen, setClockManagerOpen] = useState(false);
     const [isUserSettingsOpen, setUserSettingsOpen] = useState(false);
     const [editingPin, setEditingPin] = useState<Partial<Pin> | null>(null);
     const [editingLabel, setEditingLabel] = useState<Partial<MapLabel> | null>(null);
@@ -79,16 +81,22 @@ const Dashboard: React.FC = () => {
                 : supabase.from('wiki_pages').select('*').eq('is_visible', true).order('title', {ascending: true}),
             (isDM && !isPlayerView)
                 ? supabase.from('map_labels').select('*')
-                : supabase.from('map_labels').select('*').eq('is_visible', true)
-        ];
+                : supabase.from('map_labels').select('*').eq('is_visible', true),
+            (isDM && !isPlayerView)
+                ? supabase.from('progress_clocks').select('*').order('created_at', { ascending: false })
+                : null
+        ].filter(Boolean);
 
-        const [mapsRes, pinTypesRes, pinsRes, charsRes, wikiPagesRes, labelsRes] = await Promise.all(promises);
+        const [mapsRes, pinTypesRes, pinsRes, charsRes, wikiPagesRes, labelsRes, clocksRes] = await Promise.all(promises);
         
         if (mapsRes.error) setError({ message: "Maps error", details: mapsRes.error });
         if (pinsRes.error) setError({ message: "Pins error", details: pinsRes.error });
         if (labelsRes.error) {
              console.error("Labels error", labelsRes.error);
              // Table might not exist yet if user hasn't run migration
+        }
+        if (clocksRes && clocksRes.error) {
+             console.error("Clocks error", clocksRes.error);
         }
         if (pinTypesRes.error) setError({ message: "Pin Types error", details: pinTypesRes.error });
         if (charsRes.error) setError({ message: "Characters error", details: charsRes.error });
@@ -110,6 +118,7 @@ const Dashboard: React.FC = () => {
         if (charsRes.data) setCharacters(charsRes.data as Character[]);
         if (wikiPagesRes.data) setWikiPages(wikiPagesRes.data as WikiPage[]);
         if (labelsRes.data) setLabels(labelsRes.data as MapLabel[]);
+        if (clocksRes && clocksRes.data) setClocks(clocksRes.data as Clock[]);
 
         if (mapsRes.error) console.error("Maps error", mapsRes.error);
         if (pinsRes.error) console.error("Pins error", pinsRes.error);
@@ -162,6 +171,19 @@ const Dashboard: React.FC = () => {
         });
     };
 
+    const updateLocalClock = (clock: Clock) => {
+        setClocks(prev => {
+            const idx = prev.findIndex(c => c.id === clock.id);
+            let newClocks = [...prev];
+            if (idx >= 0) {
+                newClocks[idx] = clock;
+            } else {
+                newClocks.push(clock);
+            }
+            return newClocks.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        });
+    };
+
     const updateLocalCharacter = (char: Character) => {
         setCharacters(prev => {
             const idx = prev.findIndex(c => c.id === char.id);
@@ -200,13 +222,14 @@ const Dashboard: React.FC = () => {
         });
     };
 
-    const removeLocalItem = (type: 'map'|'pin'|'character'|'pintype'|'wikipage'|'label', id: string) => {
+    const removeLocalItem = (type: 'map'|'pin'|'character'|'pintype'|'wikipage'|'label'|'clock', id: string) => {
         if(type === 'map') setMaps(prev => prev.filter(m => m.id !== id));
         if(type === 'pin') setPins(prev => prev.filter(p => p.id !== id));
         if(type === 'character') setCharacters(prev => prev.filter(c => c.id !== id));
         if(type === 'pintype') setPinTypes(prev => prev.filter(p => p.id !== id));
         if(type === 'wikipage') setWikiPages(prev => prev.filter(p => p.id !== id));
         if(type === 'label') setLabels(prev => prev.filter(l => l.id !== id));
+        if(type === 'clock') setClocks(prev => prev.filter(c => c.id !== id));
     };
 
     const handleSelectMap = async (map: MapType | null) => {
@@ -300,8 +323,8 @@ const Dashboard: React.FC = () => {
     
     return (
         <AppContext.Provider value={{ 
-            maps, pinTypes, pins, labels, characters, wikiPages, isPlayerView, error, setError, refreshData, setIsPlayerView,
-            updateLocalPin, updateLocalMap, updateLocalLabel, updateLocalCharacter, updateLocalPinType, updateLocalWikiPage, removeLocalItem,
+            maps, pinTypes, pins, labels, clocks, characters, wikiPages, isPlayerView, error, setError, refreshData, setIsPlayerView,
+            updateLocalPin, updateLocalMap, updateLocalLabel, updateLocalClock, updateLocalCharacter, updateLocalPinType, updateLocalWikiPage, removeLocalItem,
             expandedWikiSection, setExpandedWikiSection
         }}>
             <div className="flex h-screen w-full flex-col md:flex-row overflow-hidden bg-dnd-dark text-dnd-text">
@@ -456,12 +479,14 @@ const Dashboard: React.FC = () => {
                             onPinTypeManagerOpen={() => setPinTypeManagerOpen(true)}
                             onWikiPageManagerOpen={() => setWikiPageManagerOpen(true)}
                             onPlayerManagerOpen={() => setPlayerManagerOpen(true)}
+                            onClockManagerOpen={() => setClockManagerOpen(true)}
                             onSignOut={() => signOut()}
                         />
                     )}
 
                     {isMapManagerOpen && <MapManagerModal isOpen={isMapManagerOpen} onClose={() => setMapManagerOpen(false)} />}
                     {isPinTypeManagerOpen && <PinTypeManagerModal isOpen={isPinTypeManagerOpen} onClose={() => setPinTypeManagerOpen(false)} />}
+                    {isClockManagerOpen && <ClockManagerModal isOpen={isClockManagerOpen} onClose={() => setClockManagerOpen(false)} />}
                     {isPlayerManagerOpen && <PlayerManagerModal isOpen={isPlayerManagerOpen} onClose={() => setPlayerManagerOpen(false)} />}
                     {isCharacterManagerOpen && (
                         <CharacterManagerModal 
