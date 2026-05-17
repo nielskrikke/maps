@@ -137,7 +137,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     const WikiPageTreeItem: React.FC<{ page: WikiPage, level: number }> = ({ page, level }) => {
         const children = wikiPages.filter(p => p.parent_id === page.id).sort((a, b) => a.title.localeCompare(b.title));
         const hasChildren = children.length > 0;
-        const isExpanded = expandedWikiIds.has(page.id);
+        const isExpanded = level === 0 || expandedWikiIds.has(page.id);
         const isSelected = selectedWikiPage?.id === page.id;
         const type = pinTypes.find(t => t.id === page.type_id);
 
@@ -154,7 +154,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     style={{ paddingLeft: `${level * 12 + 8}px` }}
                 >
                     <div className="flex-shrink-0 flex items-center justify-center w-6 h-6">
-                        {hasChildren ? (
+                        {hasChildren && level > 0 ? (
                             <button onClick={(e) => toggleExpandWiki(page.id, e)} className="p-1 hover:text-dnd-gold transition-colors focus:outline-none">
                                 <Icon name={isExpanded ? "chevron-down" : "chevron-right"} className="w-4 h-4 opacity-70" />
                             </button>

@@ -24,3 +24,6 @@ CREATE POLICY "Enable read access for all users" ON public.users FOR SELECT USIN
 
 -- 5. Add character_json column to characters table
 ALTER TABLE public.characters ADD COLUMN IF NOT EXISTS character_json jsonb;
+
+-- 6. Add header_image_url column to wiki_pages table
+ALTER TABLE public.wiki_pages ADD COLUMN IF NOT EXISTS header_image_url text;

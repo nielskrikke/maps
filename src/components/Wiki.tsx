@@ -602,10 +602,7 @@ const Wiki: React.FC<WikiProps> = ({
                         "relative z-20",
                         page.header_image_url ? "p-10 md:p-16" : ""
                     )}>
-                        <div className="flex flex-col md:flex-row md:items-center gap-6 mb-8">
-                            <div className="flex items-center justify-center w-16 h-16 rounded-2xl shadow-2xl text-3xl ring-2 ring-white/10 shrink-0" style={{ backgroundColor: type?.color || '#555' }}>
-                                {type?.emoji || '📄'}
-                            </div>
+                        <div className="flex flex-col mb-8">
                             <div className="flex-1 min-w-0">
                                 <div className="flex flex-wrap items-center gap-4 mb-2">
                                     <h1 className={cn(
@@ -671,7 +668,7 @@ const Wiki: React.FC<WikiProps> = ({
                 {subPages.length > 0 && (
                     <div className="mb-10">
                         <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/40 mb-3 flex items-center gap-2 px-1">
-                            <Icon name="book" className="w-3.5 h-3.5"/> Nested Lore
+                            <Icon name="book" className="w-3.5 h-3.5"/> Nested Pages
                         </h3>
                         <div className="flex flex-wrap gap-2">
                             {subPages.map(sp => (
