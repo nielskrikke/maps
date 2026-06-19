@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react';
-import { Map as MapType, Pin, PinType, Character, WikiPage, MapLabel, Clock } from '../types';
+import { Map as MapType, Pin, PinType, Character, WikiPage, MapLabel, Clock, Faction, FactionMatrix } from '../types';
 
 export type AppContextType = {
     maps: MapType[];
@@ -9,6 +9,8 @@ export type AppContextType = {
     clocks: Clock[];
     characters: Character[];
     wikiPages: WikiPage[];
+    factions: Faction[];
+    factionMatrix: FactionMatrix;
     isPlayerView: boolean;
     error: { message: string; details?: any } | null;
     setError: (error: { message: string; details?: any } | null) => void;
@@ -21,7 +23,9 @@ export type AppContextType = {
     updateLocalCharacter: (char: Character) => void;
     updateLocalPinType: (pt: PinType) => void;
     updateLocalWikiPage: (page: WikiPage) => void;
-    removeLocalItem: (type: 'map'|'pin'|'character'|'pintype'|'wikipage'|'label'|'clock', id: string) => void;
+    updateLocalFaction: (faction: Faction) => void;
+    updateLocalFactionMatrix: (matrix: FactionMatrix) => void;
+    removeLocalItem: (type: 'map'|'pin'|'character'|'pintype'|'wikipage'|'label'|'clock'|'faction', id: string) => void;
     expandedWikiSection: 'wiki' | 'characters' | 'locations';
     setExpandedWikiSection: (section: 'wiki' | 'characters' | 'locations') => void;
 };

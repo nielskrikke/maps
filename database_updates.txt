@@ -27,3 +27,45 @@ ALTER TABLE public.characters ADD COLUMN IF NOT EXISTS character_json jsonb;
 
 -- 6. Add header_image_url column to wiki_pages table
 ALTER TABLE public.wiki_pages ADD COLUMN IF NOT EXISTS header_image_url text;
+
+-- 7. Add factions table
+CREATE TABLE IF NOT EXISTS public.factions (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    current_reputation integer DEFAULT 0,
+    min_scale integer DEFAULT -100,
+    max_scale integer DEFAULT 100,
+    history_log jsonb DEFAULT '[]'::jsonb,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL
+);
+
+-- 8. Add faction matrix table (to store unified matrix configuration)
+CREATE TABLE IF NOT EXISTS public.faction_matrix (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    matrix_data jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Enable RLS and setup DM access policies
+ALTER TABLE public.factions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.faction_matrix ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Enable read for all users" ON public.factions FOR SELECT USING (true);
+CREATE POLICY "Enable all actions for DMs on factions" ON public.factions
+FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.users 
+    WHERE id = auth.uid() AND role = 'DM'
+  )
+);
+
+CREATE POLICY "Enable read for all users matrix" ON public.faction_matrix FOR SELECT USING (true);
+CREATE POLICY "Enable all actions for DMs on matrix" ON public.faction_matrix
+FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.users 
+    WHERE id = auth.uid() AND role = 'DM'
+  )
+);
+

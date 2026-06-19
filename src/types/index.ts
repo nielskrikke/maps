@@ -176,4 +176,36 @@ export type Clock = {
   created_at: string;
 };
 
+export type FactionRelationType = 'positive' | 'negative' | 'neutral';
+
+export type FactionHistoryEntry = {
+  eventId: string;
+  realWorldTimestamp: string;
+  inGameDate?: string;
+  delta: number;
+  description?: string;
+  isDirectTrigger: boolean;
+  catalystFactionId?: string | null;
+};
+
+export type Faction = {
+  id: string;
+  name: string;
+  currentReputation: number;
+  minScale: number;
+  maxScale: number;
+  historyLog: FactionHistoryEntry[];
+  created_by?: string;
+  created_at?: string;
+};
+
+export type FactionMatrix = {
+  [factionIdA: string]: {
+    [factionIdB: string]: {
+      relation: FactionRelationType;
+      weight: number;
+    };
+  };
+};
+
 export type AppUser = User & { profile: UserProfile };

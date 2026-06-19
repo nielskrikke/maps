@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../App';
-import { Map as MapType, Pin, PinType, Character, WikiPage, MapLabel, Clock } from '../types';
+import { Map as MapType, Pin, PinType, Character, WikiPage, MapLabel, Clock, Faction, FactionMatrix } from '../types';
 import { supabase } from '../services/supabase';
 import Sidebar from './Sidebar';
 import MapViewer from './MapViewer';
 import PinDetails from './PinDetails';
 import Wiki from './Wiki';
 import { MapManagerModal, PinEditorModal, PinTypeManagerModal, PlayerManagerModal, CharacterManagerModal, DMToolsModal, UserSettingsModal, WikiPageManagerModal, LabelEditorModal, ClockManagerModal } from './Modals';
+import { FactionManagerModal } from './FactionManagerModal';
 import { Icon } from './Icons';
 import { AppContext } from '../contexts/AppContext';
 
@@ -20,6 +21,8 @@ const Dashboard: React.FC = () => {
     const [clocks, setClocks] = useState<Clock[]>([]);
     const [characters, setCharacters] = useState<Character[]>([]);
     const [wikiPages, setWikiPages] = useState<WikiPage[]>([]);
+    const [factions, setFactions] = useState<Faction[]>([]);
+    const [factionMatrix, setFactionMatrix] = useState<FactionMatrix>({});
     const [error, setError] = useState<{ message: string; details?: any } | null>(null);
     
     // View State
@@ -47,6 +50,7 @@ const Dashboard: React.FC = () => {
     const [isWikiPageManagerOpen, setWikiPageManagerOpen] = useState(false);
     const [isWikiPageTypeManagerOpen, setWikiPageTypeManagerOpen] = useState(false);
     const [isClockManagerOpen, setClockManagerOpen] = useState(false);
+    const [isFactionManagerOpen, setFactionManagerOpen] = useState(false);
     const [isUserSettingsOpen, setUserSettingsOpen] = useState(false);
     const [editingPin, setEditingPin] = useState<Partial<Pin> | null>(null);
     const [editingLabel, setEditingLabel] = useState<Partial<MapLabel> | null>(null);
@@ -119,6 +123,63 @@ const Dashboard: React.FC = () => {
         if (wikiPagesRes.data) setWikiPages(wikiPagesRes.data as WikiPage[]);
         if (labelsRes.data) setLabels(labelsRes.data as MapLabel[]);
         if (clocksRes && clocksRes.data) setClocks(clocksRes.data as Clock[]);
+
+        // Factions fetching with dual storage / dynamic local cache sync
+        let fetchedFactions: Faction[] = [];
+        let fetchedMatrix: FactionMatrix = {};
+        
+        try {
+            const factionsRes = await supabase.from('factions').select('*').order('name', { ascending: true });
+            if (factionsRes.error) {
+                console.warn("Factions table query returned error, falling back to localStorage:", factionsRes.error.message);
+                throw factionsRes.error;
+            }
+            fetchedFactions = (factionsRes.data || []).map((f: any) => ({
+                id: f.id,
+                name: f.name,
+                currentReputation: f.current_reputation ?? 0,
+                minScale: f.min_scale ?? -100,
+                maxScale: f.max_scale ?? 100,
+                historyLog: typeof f.history_log === 'string' ? JSON.parse(f.history_log) : (f.history_log || [])
+            })) as Faction[];
+            // Synchronize local cache
+            localStorage.setItem('dnd_factions', JSON.stringify(fetchedFactions));
+        } catch (err) {
+            const saved = localStorage.getItem('dnd_factions');
+            if (saved) {
+                try {
+                    fetchedFactions = JSON.parse(saved);
+                } catch (e) {
+                    console.error("Local factions parsing failed", e);
+                }
+            }
+        }
+
+        try {
+            const matrixRes = await supabase.from('faction_matrix').select('*').limit(1);
+            if (matrixRes.error) {
+                console.warn("Faction matrix table query returned error, falling back to localStorage:", matrixRes.error.message);
+                throw matrixRes.error;
+            }
+            if (matrixRes.data && matrixRes.data.length > 0) {
+                const row = matrixRes.data[0];
+                fetchedMatrix = typeof row.matrix_data === 'string' ? JSON.parse(row.matrix_data) : (row.matrix_data || {});
+                localStorage.setItem('dnd_faction_matrix_db_id', row.id);
+            }
+            localStorage.setItem('dnd_faction_matrix', JSON.stringify(fetchedMatrix));
+        } catch (err) {
+            const saved = localStorage.getItem('dnd_faction_matrix');
+            if (saved) {
+                try {
+                    fetchedMatrix = JSON.parse(saved);
+                } catch (e) {
+                    console.error("Local matrix parsing failed", e);
+                }
+            }
+        }
+
+        setFactions(fetchedFactions);
+        setFactionMatrix(fetchedMatrix);
 
         if (mapsRes.error) console.error("Maps error", mapsRes.error);
         if (pinsRes.error) console.error("Pins error", pinsRes.error);
@@ -222,7 +283,55 @@ const Dashboard: React.FC = () => {
         });
     };
 
-    const removeLocalItem = (type: 'map'|'pin'|'character'|'pintype'|'wikipage'|'label'|'clock', id: string) => {
+    const updateLocalFaction = async (fac: Faction) => {
+        setFactions(prev => {
+            const idx = prev.findIndex(f => f.id === fac.id);
+            let newFacs = [...prev];
+            if (idx >= 0) {
+                newFacs[idx] = fac;
+            } else {
+                newFacs.push(fac);
+            }
+            localStorage.setItem('dnd_factions', JSON.stringify(newFacs));
+            return newFacs.sort((a, b) => a.name.localeCompare(b.name));
+        });
+
+        try {
+            const dbPayload = {
+                id: fac.id,
+                name: fac.name,
+                current_reputation: fac.currentReputation,
+                min_scale: fac.minScale,
+                max_scale: fac.maxScale,
+                history_log: fac.historyLog,
+                created_by: user?.id
+            };
+            await supabase.from('factions').upsert(dbPayload);
+        } catch (err) {
+            console.error("Supabase faction upsert fail:", err);
+        }
+    };
+
+    const updateLocalFactionMatrix = async (matrix: FactionMatrix) => {
+        setFactionMatrix(matrix);
+        localStorage.setItem('dnd_faction_matrix', JSON.stringify(matrix));
+
+        try {
+            const dbId = localStorage.getItem('dnd_faction_matrix_db_id');
+            const dbPayload: any = { matrix_data: matrix };
+            if (dbId) {
+                dbPayload.id = dbId;
+            }
+            const { data, error } = await supabase.from('faction_matrix').upsert(dbPayload).select();
+            if (!error && data && data.length > 0) {
+                localStorage.setItem('dnd_faction_matrix_db_id', data[0].id);
+            }
+        } catch (err) {
+            console.error("Supabase matrix upsert fail:", err);
+        }
+    };
+
+    const removeLocalItem = (type: 'map'|'pin'|'character'|'pintype'|'wikipage'|'label'|'clock'|'faction', id: string) => {
         if(type === 'map') setMaps(prev => prev.filter(m => m.id !== id));
         if(type === 'pin') setPins(prev => prev.filter(p => p.id !== id));
         if(type === 'character') setCharacters(prev => prev.filter(c => c.id !== id));
@@ -230,6 +339,23 @@ const Dashboard: React.FC = () => {
         if(type === 'wikipage') setWikiPages(prev => prev.filter(p => p.id !== id));
         if(type === 'label') setLabels(prev => prev.filter(l => l.id !== id));
         if(type === 'clock') setClocks(prev => prev.filter(c => c.id !== id));
+        if(type === 'faction') {
+            setFactions(prev => {
+                const filtered = prev.filter(f => f.id !== id);
+                localStorage.setItem('dnd_factions', JSON.stringify(filtered));
+                return filtered;
+            });
+            supabase.from('factions').delete().eq('id', id).then(({ error }) => {
+                if (error) {
+                    console.warn("Supabase faction delete fail:", error);
+                    setError({ 
+                        message: "Failed to dissolve faction", 
+                        details: error.message || "You might not have DM permission to delete factions, or there was a system error." 
+                    });
+                    refreshData(true); // Refetches database state to restore the faction item in the local list
+                }
+            });
+        }
     };
 
     const handleSelectMap = async (map: MapType | null) => {
@@ -323,8 +449,9 @@ const Dashboard: React.FC = () => {
     
     return (
         <AppContext.Provider value={{ 
-            maps, pinTypes, pins, labels, clocks, characters, wikiPages, isPlayerView, error, setError, refreshData, setIsPlayerView,
-            updateLocalPin, updateLocalMap, updateLocalLabel, updateLocalClock, updateLocalCharacter, updateLocalPinType, updateLocalWikiPage, removeLocalItem,
+            maps, pinTypes, pins, labels, clocks, characters, wikiPages, factions, factionMatrix, isPlayerView, error, setError, refreshData, setIsPlayerView,
+            updateLocalPin, updateLocalMap, updateLocalLabel, updateLocalClock, updateLocalCharacter, updateLocalPinType, updateLocalWikiPage,
+            updateLocalFaction, updateLocalFactionMatrix, removeLocalItem,
             expandedWikiSection, setExpandedWikiSection
         }}>
             <div className="flex h-screen w-full flex-col md:flex-row overflow-hidden bg-dnd-dark text-dnd-text">
@@ -370,6 +497,7 @@ const Dashboard: React.FC = () => {
                     onViewChange={setCurrentView}
                     onDMToolsOpen={() => setDMToolsOpen(true)}
                     onUserSettingsOpen={() => setUserSettingsOpen(true)}
+                    onFactionManagerOpen={() => setFactionManagerOpen(true)}
                 />
                 <main className="relative flex-1 p-2 md:p-4 overflow-hidden">
                     <div className="h-full w-full glass-panel overflow-hidden relative">
@@ -480,13 +608,16 @@ const Dashboard: React.FC = () => {
                             onWikiPageManagerOpen={() => setWikiPageManagerOpen(true)}
                             onPlayerManagerOpen={() => setPlayerManagerOpen(true)}
                             onClockManagerOpen={() => setClockManagerOpen(true)}
+                            onFactionManagerOpen={() => setFactionManagerOpen(true)}
                             onSignOut={() => signOut()}
+                            onUserSettingsOpen={() => setUserSettingsOpen(true)}
                         />
                     )}
 
                     {isMapManagerOpen && <MapManagerModal isOpen={isMapManagerOpen} onClose={() => setMapManagerOpen(false)} />}
                     {isPinTypeManagerOpen && <PinTypeManagerModal isOpen={isPinTypeManagerOpen} onClose={() => setPinTypeManagerOpen(false)} />}
                     {isClockManagerOpen && <ClockManagerModal isOpen={isClockManagerOpen} onClose={() => setClockManagerOpen(false)} />}
+                    {isFactionManagerOpen && <FactionManagerModal isOpen={isFactionManagerOpen} onClose={() => setFactionManagerOpen(false)} />}
                     {isPlayerManagerOpen && <PlayerManagerModal isOpen={isPlayerManagerOpen} onClose={() => setPlayerManagerOpen(false)} />}
                     {isCharacterManagerOpen && (
                         <CharacterManagerModal 

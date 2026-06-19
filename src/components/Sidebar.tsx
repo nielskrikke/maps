@@ -20,12 +20,14 @@ interface SidebarProps {
     onViewChange: (view: 'map' | 'wiki') => void;
     onDMToolsOpen: () => void;
     onUserSettingsOpen: () => void;
+    onFactionManagerOpen: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
     selectedMap, selectedPin, selectedCharacter, selectedWikiPage,
     onSelectMap, onSelectPin, onSelectCharacter, onSelectWikiPage,
-    currentView, onViewChange, onDMToolsOpen, onUserSettingsOpen 
+    currentView, onViewChange, onDMToolsOpen, onUserSettingsOpen,
+    onFactionManagerOpen
 }) => {
     const { user, signOut } = useAuth();
     const { 
@@ -629,22 +631,18 @@ const Sidebar: React.FC<SidebarProps> = ({
             ) : (
                 <div className="mt-4 pt-4 border-t border-white/5 relative z-10 space-y-3">
                     <button 
-                        onClick={onUserSettingsOpen}
+                        onClick={onFactionManagerOpen}
                         className="w-full flex items-center space-x-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-dnd-gold/30 p-2.5 shadow-inner transition-all group text-left relative z-10"
-                        title="Profile Settings"
+                        title="Faction Diplomacy & Reputation Engine"
                     >
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-dnd-dark border border-white/10 overflow-hidden text-dnd-gold group-hover:border-dnd-gold/50 transition-colors shadow-xl text-xs">
-                            {user?.profile.image_url ? (
-                                <img src={user.profile.image_url} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                            ) : (
-                                <span className="font-serif font-bold">{user?.profile.username.charAt(0).toUpperCase()}</span>
-                            )}
+                            <Icon name="shield" className="w-4 h-4 text-dnd-gold group-hover:scale-110 transition-transform" />
                         </div>
                         <div className="min-w-0 flex-1">
-                            <p className="font-bold truncate text-xs text-white group-hover:text-dnd-gold transition-colors">{user?.profile.username}</p>
-                            <p className="text-[8px] text-dnd-text/40 uppercase tracking-widest font-bold">DM</p>
+                            <p className="font-bold truncate text-xs text-white group-hover:text-dnd-gold transition-colors font-serif">Faction Diplomacy</p>
+                            <p className="text-[8px] text-dnd-text/40 uppercase tracking-widest font-bold">Reputation Engine</p>
                         </div>
-                        <Icon name="settings" className="w-3.5 h-3.5 text-dnd-text/20 group-hover:text-dnd-gold transition-all" />
+                        <Icon name="chevron-right" className="w-3.5 h-3.5 text-dnd-text/20 group-hover:text-dnd-gold transition-all" />
                     </button>
 
                     <div className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5 shadow-xl">

@@ -139,12 +139,15 @@ interface DMToolsModalProps {
     onWikiPageManagerOpen: () => void;
     onPlayerManagerOpen: () => void;
     onClockManagerOpen: () => void;
+    onFactionManagerOpen: () => void;
     onSignOut: () => void;
+    onUserSettingsOpen: () => void;
 }
 
 export const DMToolsModal: React.FC<DMToolsModalProps> = ({
-    isOpen, onClose, onMapManagerOpen, onCharacterManagerOpen, onPinTypeManagerOpen, onWikiPageManagerOpen, onPlayerManagerOpen, onClockManagerOpen, onSignOut
+    isOpen, onClose, onMapManagerOpen, onCharacterManagerOpen, onPinTypeManagerOpen, onWikiPageManagerOpen, onPlayerManagerOpen, onClockManagerOpen, onFactionManagerOpen, onSignOut, onUserSettingsOpen
 }) => {
+    const { user } = useAuth();
     const handleAction = (action: () => void) => {
         onClose();
         action();
@@ -153,6 +156,33 @@ export const DMToolsModal: React.FC<DMToolsModalProps> = ({
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="DM Tools" maxWidthClass="max-w-md">
             <div className="space-y-4">
+                {/* DM Profile Header */}
+                {user && (
+                    <div className="mb-6 p-4 rounded-xl bg-white/[0.03] border border-white/5 shadow-md flex items-center justify-between group-hover:border-dnd-gold/10 transition-all">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-dnd-dark border border-white/10 overflow-hidden text-dnd-gold shadow-xl flex-shrink-0">
+                                {user.profile.image_url ? (
+                                    <img src={user.profile.image_url} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                ) : (
+                                    <span className="font-serif font-bold text-sm">{user.profile.username.charAt(0).toUpperCase()}</span>
+                                )}
+                            </div>
+                            <div className="min-w-0">
+                                <div className="font-bold text-sm text-white truncate">{user.profile.username}</div>
+                                <div className="text-[10px] text-dnd-gold/60 uppercase tracking-widest font-bold mt-0.5">Dungeon Master</div>
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => handleAction(onUserSettingsOpen)} 
+                            className="p-2 px-3 bg-white/5 hover:bg-dnd-gold/20 hover:text-dnd-gold text-dnd-text/40 rounded-xl border border-white/5 hover:border-dnd-gold/20 transition-all flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider flex-shrink-0"
+                            title="Profile Settings"
+                        >
+                            <Icon name="settings" className="w-3.5 h-3.5" />
+                            Settings
+                        </button>
+                    </div>
+                )}
+
                 <div className="space-y-2">
                     <h3 className="text-[10px] font-bold uppercase tracking-widest text-dnd-text/10 mb-2 px-1">Management</h3>
                     <button onClick={() => handleAction(onClockManagerOpen)} className="w-full flex items-center gap-4 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-dnd-gold/20 transition-all group text-left shadow-md">
@@ -162,6 +192,16 @@ export const DMToolsModal: React.FC<DMToolsModalProps> = ({
                         <div>
                             <div className="font-bold text-sm text-white/90 group-hover:text-white transition-colors">Progress Clocks</div>
                             <div className="text-[10px] text-dnd-text/30">Track complexity and time</div>
+                        </div>
+                    </button>
+
+                    <button onClick={() => handleAction(onFactionManagerOpen)} className="w-full flex items-center gap-4 p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 hover:border-dnd-gold/20 transition-all group text-left shadow-md">
+                        <div className="p-2.5 rounded-lg bg-dnd-dark text-dnd-gold group-hover:scale-105 transition-transform">
+                            <Icon name="shield" className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <div className="font-bold text-sm text-white/90 group-hover:text-white transition-colors">Faction Reputation</div>
+                            <div className="text-[10px] text-dnd-text/30">Track faction relation matrix and reputation</div>
                         </div>
                     </button>
 
