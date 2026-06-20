@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../App';
 import { Map as MapType, Pin, PinType, Character, WikiPage, MapLabel, Clock, Faction, FactionMatrix } from '../types';
-import { supabase } from '../services/supabase';
+import { supabase, ensureFreshSession, withTimeout } from '../services/supabase';
 import Sidebar from './Sidebar';
 import MapViewer from './MapViewer';
 import PinDetails from './PinDetails';
@@ -40,6 +40,7 @@ const Dashboard: React.FC = () => {
     
     const [isPlayerView, setIsPlayerView] = useState(user?.profile.role === 'Player');
     const [loading, setLoading] = useState(true);
+    const [hasInitializedUrl, setHasInitializedUrl] = useState(false);
 
     // Modal states
     const [isDMToolsOpen, setDMToolsOpen] = useState(false);
@@ -91,105 +92,234 @@ const Dashboard: React.FC = () => {
                 : null
         ].filter(Boolean);
 
-        const [mapsRes, pinTypesRes, pinsRes, charsRes, wikiPagesRes, labelsRes, clocksRes] = await Promise.all(promises);
-        
-        if (mapsRes.error) setError({ message: "Maps error", details: mapsRes.error });
-        if (pinsRes.error) setError({ message: "Pins error", details: pinsRes.error });
-        if (labelsRes.error) {
-             console.error("Labels error", labelsRes.error);
-             // Table might not exist yet if user hasn't run migration
-        }
-        if (clocksRes && clocksRes.error) {
-             console.error("Clocks error", clocksRes.error);
-        }
-        if (pinTypesRes.error) setError({ message: "Pin Types error", details: pinTypesRes.error });
-        if (charsRes.error) setError({ message: "Characters error", details: charsRes.error });
-        if (wikiPagesRes.error) {
-            console.error("Wiki Pages error", wikiPagesRes.error);
-            if (wikiPagesRes.error.code === '42P01') {
-                setError({ 
-                    message: "Wiki table missing", 
-                    details: "The 'wiki_pages' table does not exist in your database. Please run the SQL setup script provided in the instructions." 
-                });
-            } else {
-                setError({ message: "Wiki Pages error", details: wikiPagesRes.error });
-            }
-        }
-
-        if (mapsRes.data) setMaps(mapsRes.data as MapType[]);
-        if (pinTypesRes.data) setPinTypes(pinTypesRes.data);
-        if (pinsRes.data) setPins(pinsRes.data as Pin[]);
-        if (charsRes.data) setCharacters(charsRes.data as Character[]);
-        if (wikiPagesRes.data) setWikiPages(wikiPagesRes.data as WikiPage[]);
-        if (labelsRes.data) setLabels(labelsRes.data as MapLabel[]);
-        if (clocksRes && clocksRes.data) setClocks(clocksRes.data as Clock[]);
-
-        // Factions fetching with dual storage / dynamic local cache sync
-        let fetchedFactions: Faction[] = [];
-        let fetchedMatrix: FactionMatrix = {};
-        
         try {
-            const factionsRes = await supabase.from('factions').select('*').order('name', { ascending: true });
-            if (factionsRes.error) {
-                console.warn("Factions table query returned error, falling back to localStorage:", factionsRes.error.message);
-                throw factionsRes.error;
+            await ensureFreshSession();
+            const results = await withTimeout(
+                Promise.all(promises),
+                12000,
+                "Datastore retrieval timed out. Please check your internet connection."
+            );
+            
+            const [mapsRes, pinTypesRes, pinsRes, charsRes, wikiPagesRes, labelsRes, clocksRes] = results;
+
+            if (mapsRes.error) setError({ message: "Maps error", details: mapsRes.error });
+            if (pinsRes.error) setError({ message: "Pins error", details: pinsRes.error });
+            if (labelsRes.error) {
+                 console.error("Labels error", labelsRes.error);
             }
-            fetchedFactions = (factionsRes.data || []).map((f: any) => ({
-                id: f.id,
-                name: f.name,
-                currentReputation: f.current_reputation ?? 0,
-                minScale: f.min_scale ?? -100,
-                maxScale: f.max_scale ?? 100,
-                historyLog: typeof f.history_log === 'string' ? JSON.parse(f.history_log) : (f.history_log || [])
-            })) as Faction[];
-            // Synchronize local cache
-            localStorage.setItem('dnd_factions', JSON.stringify(fetchedFactions));
-        } catch (err) {
-            const saved = localStorage.getItem('dnd_factions');
-            if (saved) {
-                try {
-                    fetchedFactions = JSON.parse(saved);
-                } catch (e) {
-                    console.error("Local factions parsing failed", e);
+            if (clocksRes && clocksRes.error) {
+                 console.error("Clocks error", clocksRes.error);
+            }
+            if (pinTypesRes.error) setError({ message: "Pin Types error", details: pinTypesRes.error });
+            if (charsRes.error) setError({ message: "Characters error", details: charsRes.error });
+            if (wikiPagesRes.error) {
+                console.error("Wiki Pages error", wikiPagesRes.error);
+                if (wikiPagesRes.error.code === '42P01') {
+                    setError({ 
+                        message: "Wiki table missing", 
+                        details: "The 'wiki_pages' table does not exist in your database. Please run the SQL setup script provided in the instructions." 
+                    });
+                } else {
+                    setError({ message: "Wiki Pages error", details: wikiPagesRes.error });
                 }
             }
-        }
 
-        try {
-            const matrixRes = await supabase.from('faction_matrix').select('*').limit(1);
-            if (matrixRes.error) {
-                console.warn("Faction matrix table query returned error, falling back to localStorage:", matrixRes.error.message);
-                throw matrixRes.error;
-            }
-            if (matrixRes.data && matrixRes.data.length > 0) {
-                const row = matrixRes.data[0];
-                fetchedMatrix = typeof row.matrix_data === 'string' ? JSON.parse(row.matrix_data) : (row.matrix_data || {});
-                localStorage.setItem('dnd_faction_matrix_db_id', row.id);
-            }
-            localStorage.setItem('dnd_faction_matrix', JSON.stringify(fetchedMatrix));
-        } catch (err) {
-            const saved = localStorage.getItem('dnd_faction_matrix');
-            if (saved) {
-                try {
-                    fetchedMatrix = JSON.parse(saved);
-                } catch (e) {
-                    console.error("Local matrix parsing failed", e);
+            if (mapsRes.data) setMaps(mapsRes.data as MapType[]);
+            if (pinTypesRes.data) setPinTypes(pinTypesRes.data);
+            if (pinsRes.data) setPins(pinsRes.data as Pin[]);
+            if (charsRes.data) setCharacters(charsRes.data as Character[]);
+            if (wikiPagesRes.data) setWikiPages(wikiPagesRes.data as WikiPage[]);
+            if (labelsRes.data) setLabels(labelsRes.data as MapLabel[]);
+            if (clocksRes && clocksRes.data) setClocks(clocksRes.data as Clock[]);
+
+            // Factions fetching with dual storage / dynamic local cache sync
+            let fetchedFactions: Faction[] = [];
+            let fetchedMatrix: FactionMatrix = {};
+            
+            try {
+                const factionsRes = await supabase.from('factions').select('*').order('name', { ascending: true });
+                if (factionsRes.error) {
+                    console.warn("Factions table query returned error, falling back to localStorage:", factionsRes.error.message);
+                    throw factionsRes.error;
+                }
+                fetchedFactions = (factionsRes.data || []).map((f: any) => ({
+                    id: f.id,
+                    name: f.name,
+                    currentReputation: f.current_reputation ?? 0,
+                    minScale: f.min_scale ?? -100,
+                    maxScale: f.max_scale ?? 100,
+                    historyLog: typeof f.history_log === 'string' ? JSON.parse(f.history_log) : (f.history_log || [])
+                })) as Faction[];
+                // Synchronize local cache
+                localStorage.setItem('dnd_factions', JSON.stringify(fetchedFactions));
+            } catch (err) {
+                const saved = localStorage.getItem('dnd_factions');
+                if (saved) {
+                    try {
+                        fetchedFactions = JSON.parse(saved);
+                    } catch (e) {
+                        console.error("Local factions parsing failed", e);
+                    }
                 }
             }
+
+            try {
+                const matrixRes = await supabase.from('faction_matrix').select('*').limit(1);
+                if (matrixRes.error) {
+                    console.warn("Faction matrix table query returned error, falling back to localStorage:", matrixRes.error.message);
+                    throw matrixRes.error;
+                }
+                if (matrixRes.data && matrixRes.data.length > 0) {
+                    const row = matrixRes.data[0];
+                    fetchedMatrix = typeof row.matrix_data === 'string' ? JSON.parse(row.matrix_data) : (row.matrix_data || {});
+                    localStorage.setItem('dnd_faction_matrix_db_id', row.id);
+                }
+                localStorage.setItem('dnd_faction_matrix', JSON.stringify(fetchedMatrix));
+            } catch (err) {
+                const saved = localStorage.getItem('dnd_faction_matrix');
+                if (saved) {
+                    try {
+                        fetchedMatrix = JSON.parse(saved);
+                    } catch (e) {
+                        console.error("Local matrix parsing failed", e);
+                    }
+                }
+            }
+
+            setFactions(fetchedFactions);
+            setFactionMatrix(fetchedMatrix);
+
+            if (mapsRes.error) console.error("Maps error", mapsRes.error);
+            if (pinsRes.error) console.error("Pins error", pinsRes.error);
+        } catch (err: any) {
+            console.error("refreshData fail:", err);
+            setError({ message: "Failed to sync data with database", details: err.message || err });
+        } finally {
+            if (!silent) setLoading(false);
         }
-
-        setFactions(fetchedFactions);
-        setFactionMatrix(fetchedMatrix);
-
-        if (mapsRes.error) console.error("Maps error", mapsRes.error);
-        if (pinsRes.error) console.error("Pins error", pinsRes.error);
-        
-        if (!silent) setLoading(false);
     }, [user, isPlayerView]);
 
     useEffect(() => {
         refreshData();
     }, [refreshData]);
+
+    // 1. Restore state from URL on initial load once loading concludes
+    useEffect(() => {
+        if (loading) return;
+        if (hasInitializedUrl) return;
+
+        const searchParams = new URLSearchParams(window.location.search);
+        const hashStr = window.location.hash.startsWith('#') ? window.location.hash.substring(1) : window.location.hash;
+        const hashParams = new URLSearchParams(hashStr.includes('?') ? hashStr.split('?')[1] : hashStr);
+
+        const getParam = (name: string) => searchParams.get(name) || hashParams.get(name);
+
+        const urlView = getParam('view') as 'map' | 'wiki' | null;
+        const mapId = getParam('map_id');
+        const pinId = getParam('pin_id');
+        const wikiId = getParam('wiki_id');
+        const charId = getParam('character_id');
+        const section = getParam('section') as 'wiki' | 'characters' | 'locations' | null;
+
+        let stateView: 'map' | 'wiki' = 'map';
+        let stateMap: MapType | null = null;
+        let statePin: Pin | null = null;
+        let stateWiki: WikiPage | null = null;
+        let stateChar: Character | null = null;
+
+        if (urlView === 'wiki' || urlView === 'map') {
+            stateView = urlView;
+        }
+
+        if (mapId) {
+            const foundMap = maps.find(m => m.id === mapId);
+            if (foundMap) {
+                stateMap = foundMap;
+            }
+        }
+
+        if (pinId) {
+            const foundPin = pins.find(p => p.id === pinId);
+            if (foundPin) {
+                statePin = foundPin;
+                if (!stateMap) {
+                    const parentMap = maps.find(m => m.id === foundPin.map_id);
+                    if (parentMap) stateMap = parentMap;
+                }
+            }
+        }
+
+        if (wikiId) {
+            const foundWiki = wikiPages.find(w => w.id === wikiId);
+            if (foundWiki) {
+                stateWiki = foundWiki;
+            }
+        }
+
+        if (charId) {
+            const foundChar = characters.find(c => c.id === charId);
+            if (foundChar) {
+                stateChar = foundChar;
+            }
+        }
+
+        if (section === 'wiki' || section === 'characters' || section === 'locations') {
+            setExpandedWikiSection(section);
+        }
+
+        // Apply state updates to synchronize UI
+        setCurrentView(stateView);
+        if (stateMap) setSelectedMap(stateMap);
+        if (statePin) setSelectedPin(statePin);
+        if (stateWiki) setSelectedWikiPage(stateWiki);
+        if (stateChar) setSelectedCharacter(stateChar);
+
+        setHasInitializedUrl(true);
+    }, [loading, maps, pins, wikiPages, characters, hasInitializedUrl]);
+
+    // 2. Synchronize active state with the URL address bar
+    useEffect(() => {
+        if (!hasInitializedUrl) return;
+
+        const params = new URLSearchParams(window.location.search);
+
+        params.set('view', currentView);
+
+        if (selectedMap) {
+            params.set('map_id', selectedMap.id);
+        } else {
+            params.delete('map_id');
+        }
+
+        if (selectedPin) {
+            params.set('pin_id', selectedPin.id);
+        } else {
+            params.delete('pin_id');
+        }
+
+        if (selectedWikiPage) {
+            params.set('wiki_id', selectedWikiPage.id);
+        } else {
+            params.delete('wiki_id');
+        }
+
+        if (selectedCharacter) {
+            params.set('character_id', selectedCharacter.id);
+        } else {
+            params.delete('character_id');
+        }
+
+        if (expandedWikiSection) {
+            params.set('section', expandedWikiSection);
+        } else {
+            params.delete('section');
+        }
+
+        const newSearch = params.toString() ? `?${params.toString()}` : window.location.pathname;
+        
+        // Quietly update the URL without triggering navigation or route reload
+        window.history.replaceState(null, '', newSearch);
+    }, [currentView, selectedMap, selectedPin, selectedWikiPage, selectedCharacter, expandedWikiSection, hasInitializedUrl]);
 
     const updateLocalPin = (pin: Pin) => {
         setPins(prev => {
@@ -297,6 +427,7 @@ const Dashboard: React.FC = () => {
         });
 
         try {
+            await ensureFreshSession();
             const dbPayload = {
                 id: fac.id,
                 name: fac.name,
@@ -306,7 +437,11 @@ const Dashboard: React.FC = () => {
                 history_log: fac.historyLog,
                 created_by: user?.id
             };
-            await supabase.from('factions').upsert(dbPayload);
+            await withTimeout(
+                supabase.from('factions').upsert(dbPayload),
+                5000,
+                "Faction synchronisation timed out."
+            );
         } catch (err) {
             console.error("Supabase faction upsert fail:", err);
         }
@@ -317,14 +452,19 @@ const Dashboard: React.FC = () => {
         localStorage.setItem('dnd_faction_matrix', JSON.stringify(matrix));
 
         try {
+            await ensureFreshSession();
             const dbId = localStorage.getItem('dnd_faction_matrix_db_id');
             const dbPayload: any = { matrix_data: matrix };
             if (dbId) {
                 dbPayload.id = dbId;
             }
-            const { data, error } = await supabase.from('faction_matrix').upsert(dbPayload).select();
-            if (!error && data && data.length > 0) {
-                localStorage.setItem('dnd_faction_matrix_db_id', data[0].id);
+            const res = await withTimeout(
+                supabase.from('faction_matrix').upsert(dbPayload).select(),
+                5000,
+                "Faction matrix synchronisation timed out."
+            );
+            if (!res.error && res.data && res.data.length > 0) {
+                localStorage.setItem('dnd_faction_matrix_db_id', res.data[0].id);
             }
         } catch (err) {
             console.error("Supabase matrix upsert fail:", err);
@@ -345,28 +485,40 @@ const Dashboard: React.FC = () => {
                 localStorage.setItem('dnd_factions', JSON.stringify(filtered));
                 return filtered;
             });
-            supabase.from('factions').delete().eq('id', id).then(({ error }) => {
-                if (error) {
+            ensureFreshSession()
+                .then(() => withTimeout(supabase.from('factions').delete().eq('id', id), 5000))
+                .then(({ error }) => {
+                    if (error) throw error;
+                })
+                .catch((error) => {
                     console.warn("Supabase faction delete fail:", error);
                     setError({ 
                         message: "Failed to dissolve faction", 
                         details: error.message || "You might not have DM permission to delete factions, or there was a system error." 
                     });
                     refreshData(true); // Refetches database state to restore the faction item in the local list
-                }
-            });
+                });
         }
     };
 
     const handleSelectMap = async (map: MapType | null) => {
         if (map && !map.image_url) {
             // Fetch full map data including image_url when selected
-            const { data, error } = await supabase.from('maps').select('*').eq('id', map.id).single();
-            if (data) {
-                updateLocalMap(data);
-                setSelectedMap(data);
-            } else if (error) {
-                console.error("Error fetching full map data:", error);
+            try {
+                await ensureFreshSession();
+                const res = await withTimeout(
+                    supabase.from('maps').select('*').eq('id', map.id).single(),
+                    5000,
+                    "Map pre-fetch timed out."
+                );
+                if (res.data) {
+                    updateLocalMap(res.data);
+                    setSelectedMap(res.data);
+                } else if (res.error) {
+                    console.error("Error fetching full map data:", res.error);
+                }
+            } catch (err) {
+                console.error("Exception fetching map pre-fetch:", err);
             }
         } else {
             setSelectedMap(map);
@@ -413,18 +565,38 @@ const Dashboard: React.FC = () => {
     
     const handleMovePin = async (pinId: string, x: number, y: number) => {
         setPins(prev => prev.map(p => p.id === pinId ? { ...p, x_coord: x, y_coord: y } : p));
-        const { error } = await supabase.from('pins').update({ x_coord: x, y_coord: y }).eq('id', pinId);
-        if (error) {
-            console.error("Error moving pin:", error);
+        try {
+            await ensureFreshSession();
+            const { error } = await withTimeout(
+                supabase.from('pins').update({ x_coord: x, y_coord: y }).eq('id', pinId),
+                5000,
+                "Moving pin timed out."
+            );
+            if (error) {
+                console.error("Error moving pin:", error);
+                refreshData(true);
+            }
+        } catch (err) {
+            console.error("Exception moving pin:", err);
             refreshData(true);
         }
     };
 
     const handleMoveLabel = async (labelId: string, x: number, y: number) => {
         setLabels(prev => prev.map(l => l.id === labelId ? { ...l, x_coord: x, y_coord: y } : l));
-        const { error } = await supabase.from('map_labels').update({ x_coord: x, y_coord: y }).eq('id', labelId);
-        if (error) {
-            console.error("Error moving label:", error);
+        try {
+            await ensureFreshSession();
+            const { error } = await withTimeout(
+                supabase.from('map_labels').update({ x_coord: x, y_coord: y }).eq('id', labelId),
+                5000,
+                "Moving label timed out."
+            );
+            if (error) {
+                console.error("Error moving label:", error);
+                refreshData(true);
+            }
+        } catch (err) {
+            console.error("Exception moving label:", err);
             refreshData(true);
         }
     };

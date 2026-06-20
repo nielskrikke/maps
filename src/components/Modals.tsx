@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { supabase, supabaseUrl, supabaseAnonKey, uploadFile } from '../services/supabase';
+import { supabase, supabaseUrl, supabaseAnonKey, uploadFile, ensureFreshSession, withTimeout } from '../services/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { useAuth } from '../App';
 import { useAppContext } from '../contexts/AppContext';
@@ -293,10 +293,13 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
         setMsg(null);
 
         try {
-            const { error } = await supabase
-                .from('users')
-                .update({ username: username, image_url: imageUrl || null })
-                .eq('id', user.id);
+            await ensureFreshSession();
+            const { error } = await withTimeout(
+                supabase
+                    .from('users')
+                    .update({ username: username, image_url: imageUrl || null })
+                    .eq('id', user.id)
+            );
 
             if (error) {
                 if (error.message?.includes('column "image_url" of relation "users" does not exist')) {
@@ -313,6 +316,8 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, on
 
         } catch (err: any) {
             setMsg({ type: 'error', text: err.message });
+        } finally {
+            // Keep setLoading(false) here, though reload is pending
             setLoading(false);
         }
     };
@@ -481,10 +486,13 @@ export const PlayerManagerModal: React.FC<PlayerManagerModalProps> = ({ isOpen, 
         if (!editingUser || !editingUser.id) return;
         setLoading(true);
         try {
-            const { error } = await supabase.from('users').update({
-                username: editingUser.username,
-                role: editingUser.role
-            }).eq('id', editingUser.id);
+            await ensureFreshSession();
+            const { error } = await withTimeout(
+                supabase.from('users').update({
+                    username: editingUser.username,
+                    role: editingUser.role
+                }).eq('id', editingUser.id)
+            );
             
             if (error) throw error;
             setEditingUser(null);
@@ -498,13 +506,21 @@ export const PlayerManagerModal: React.FC<PlayerManagerModalProps> = ({ isOpen, 
 
     const handleDeleteUser = async (id: string) => {
         setLoading(true);
-        const { error } = await supabase.from('users').delete().eq('id', id);
-        if (error) {
-            setError({ message: "Error deleting user", details: error });
-        } else {
-            fetchUsers();
+        try {
+            await ensureFreshSession();
+            const { error } = await withTimeout(
+                supabase.from('users').delete().eq('id', id)
+            );
+            if (error) {
+                setError({ message: "Error deleting user", details: error });
+            } else {
+                fetchUsers();
+            }
+        } catch (e: any) {
+            setError({ message: "Error deleting user", details: e });
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
@@ -681,11 +697,17 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
         setLoading(true);
 
         try {
+            await ensureFreshSession();
+
             let finalImageUrl = imageUrl;
             if (imageFile) {
                 const fileExt = imageFile.name.split('.').pop();
                 const fileName = `map_${Date.now()}.${fileExt}`;
-                finalImageUrl = await uploadFile('assets', `${user.id}/${fileName}`, imageFile);
+                finalImageUrl = await withTimeout(
+                    uploadFile('assets', `${user.id}/${fileName}`, imageFile),
+                    15000,
+                    "Image upload timed out. Please check your network and try again."
+                );
             }
 
             const payload: any = {
@@ -706,10 +728,14 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
             let data;
             let res;
             if (isEditing && editingMap?.id) {
-                res = await supabase.from('maps').update(payload).eq('id', editingMap.id).select().single();
+                res = await withTimeout(
+                    supabase.from('maps').update(payload).eq('id', editingMap.id).select().single()
+                );
                 data = res.data;
             } else {
-                res = await supabase.from('maps').insert(payload).select().single();
+                res = await withTimeout(
+                    supabase.from('maps').insert(payload).select().single()
+                );
                 data = res.data;
             }
 
@@ -730,14 +756,21 @@ export const MapManagerModal: React.FC<MapManagerModalProps> = ({ isOpen, onClos
 
     const handleDelete = async (id: string) => {
         setLoading(true);
-        const { error } = await supabase.from('maps').delete().eq('id', id);
-        if (!error) {
-            removeLocalItem('map', id);
-            resetForm();
-        } else {
+        try {
+            await ensureFreshSession();
+            const { error } = await withTimeout(supabase.from('maps').delete().eq('id', id));
+            if (!error) {
+                removeLocalItem('map', id);
+                resetForm();
+            } else {
+                setError({ message: "Error deleting map", details: error });
+            }
+        } catch (error: any) {
+            console.error(error);
             setError({ message: "Error deleting map", details: error });
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
@@ -935,12 +968,17 @@ export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen
         const payload: any = { name, emoji, color };
 
         try {
+            await ensureFreshSession();
             let res;
             if (isEditing && editingType?.id) {
-                res = await supabase.from('pin_types').update(payload).eq('id', editingType.id).select().single();
+                res = await withTimeout(
+                    supabase.from('pin_types').update(payload).eq('id', editingType.id).select().single()
+                );
             } else {
                 payload.created_by = user.id;
-                res = await supabase.from('pin_types').insert(payload).select().single();
+                res = await withTimeout(
+                    supabase.from('pin_types').insert(payload).select().single()
+                );
             }
 
             if (res.error) {
@@ -960,12 +998,23 @@ export const PinTypeManagerModal: React.FC<PinTypeManagerModalProps> = ({ isOpen
 
     const handleDelete = async (id: string) => {
         setLoading(true);
-        const { error } = await supabase.from('pin_types').delete().eq('id', id);
-        if(!error) {
-            removeLocalItem('pintype', id);
-            resetForm();
+        try {
+            await ensureFreshSession();
+            const { error } = await withTimeout(
+                supabase.from('pin_types').delete().eq('id', id)
+            );
+            if(!error) {
+                removeLocalItem('pintype', id);
+                resetForm();
+            } else {
+                setError({ message: "Error deleting pin type", details: error });
+            }
+        } catch (err: any) {
+            console.error(err);
+            setError({ message: "Error deleting pin type", details: err });
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
@@ -1134,11 +1183,16 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
         }
 
         try {
+            await ensureFreshSession();
             let res;
             if (isEditing && editingChar?.id) {
-                res = await supabase.from('characters').update(payload).eq('id', editingChar.id).select().single();
+                res = await withTimeout(
+                    supabase.from('characters').update(payload).eq('id', editingChar.id).select().single()
+                );
             } else {
-                res = await supabase.from('characters').insert(payload).select().single();
+                res = await withTimeout(
+                    supabase.from('characters').insert(payload).select().single()
+                );
             }
 
             if (res.error) {
@@ -1158,14 +1212,23 @@ export const CharacterManagerModal: React.FC<CharacterManagerModalProps> = ({ is
     
     const handleDelete = async (id: string) => {
         setLoading(true);
-        const { error } = await supabase.from('characters').delete().eq('id', id);
-        if (!error) {
-            removeLocalItem('character', id);
-            resetForm();
-        } else {
-            setError({ message: "Error deleting character", details: error });
+        try {
+            await ensureFreshSession();
+            const { error } = await withTimeout(
+                supabase.from('characters').delete().eq('id', id)
+            );
+            if (!error) {
+                removeLocalItem('character', id);
+                resetForm();
+            } else {
+                setError({ message: "Error deleting character", details: error });
+            }
+        } catch (err: any) {
+            console.error("Exception deleting character:", err);
+            setError({ message: "Error deleting character", details: err });
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
@@ -1467,11 +1530,16 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
         };
 
         try {
+            await ensureFreshSession();
             let result;
             if (pinData.id) {
-                result = await supabase.from('pins').update(payload).eq('id', pinData.id).select().single();
+                result = await withTimeout(
+                    supabase.from('pins').update(payload).eq('id', pinData.id).select().single()
+                );
             } else if (user) {
-                result = await supabase.from('pins').insert({ ...payload, created_by: user.id }).select().single();
+                result = await withTimeout(
+                    supabase.from('pins').insert({ ...payload, created_by: user.id }).select().single()
+                );
             }
             
             console.log("Pin Save Response:", result);
@@ -1479,7 +1547,7 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
             if (result?.error) {
                 console.error("Error saving pin:", result.error);
                 setError({ message: "Error saving sigil", details: result.error });
-                return; // Stop here if error
+                return; // Stop here if error (finally block will still clear loading)
             }
 
             if (result?.data) {
@@ -1504,14 +1572,23 @@ export const PinEditorModal: React.FC<PinEditorModalProps> = ({ pinData, onClose
     const handleDelete = async () => {
         if (!pinData.id) return;
         setLoading(true);
-        const { error } = await supabase.from('pins').delete().eq('id', pinData.id);
-        if (!error) {
-            removeLocalItem('pin', pinData.id);
-            onSave();
-        } else {
-            setError({ message: "Error deleting pin", details: error });
+        try {
+            await ensureFreshSession();
+            const { error } = await withTimeout(
+                supabase.from('pins').delete().eq('id', pinData.id)
+            );
+            if (!error) {
+                removeLocalItem('pin', pinData.id);
+                onSave();
+            } else {
+                setError({ message: "Error deleting pin", details: error });
+            }
+        } catch (err: any) {
+            console.error("Exception deleting pin:", err);
+            setError({ message: "Error deleting pin", details: err });
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     return (
@@ -2245,11 +2322,16 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
         }
 
         try {
+            await ensureFreshSession();
             let res;
             if (isEditing && editingPage?.id) {
-                res = await supabase.from('wiki_pages').update(payload).eq('id', editingPage.id).select().single();
+                res = await withTimeout(
+                    supabase.from('wiki_pages').update(payload).eq('id', editingPage.id).select().single()
+                );
             } else {
-                res = await supabase.from('wiki_pages').insert(payload).select().single();
+                res = await withTimeout(
+                    supabase.from('wiki_pages').insert(payload).select().single()
+                );
             }
 
             console.log("Wiki Page Save Response:", res);
@@ -2280,15 +2362,24 @@ export const WikiPageManagerModal: React.FC<WikiPageManagerModalProps> = ({ isOp
     const handleDelete = async () => {
         if (!editingPage?.id) return;
         setLoading(true);
-        const { error } = await supabase.from('wiki_pages').delete().eq('id', editingPage.id);
-        if (!error) {
-            removeLocalItem('wikipage', editingPage.id);
-            resetForm();
-        } else {
-            setError({ message: "Error deleting wiki page", details: error });
+        try {
+            await ensureFreshSession();
+            const { error } = await withTimeout(
+                supabase.from('wiki_pages').delete().eq('id', editingPage.id)
+            );
+            if (!error) {
+                removeLocalItem('wikipage', editingPage.id);
+                resetForm();
+            } else {
+                setError({ message: "Error deleting wiki page", details: error });
+            }
+        } catch (err: any) {
+            console.error("Exception deleting wiki page:", err);
+            setError({ message: "Error deleting wiki page", details: err });
+        } finally {
+            setLoading(false);
+            setIsDeleting(false);
         }
-        setLoading(false);
-        setIsDeleting(false);
     };
 
     const addSection = (type: PinSectionType) => {
@@ -2920,11 +3011,16 @@ export const LabelEditorModal: React.FC<LabelEditorModalProps> = ({ labelData, o
         };
 
         try {
+            await ensureFreshSession();
             let res;
             if (isEditing) {
-                res = await supabase.from('map_labels').update(payload).eq('id', labelData.id).select().single();
+                res = await withTimeout(
+                    supabase.from('map_labels').update(payload).eq('id', labelData.id).select().single()
+                );
             } else {
-                res = await supabase.from('map_labels').insert(payload).select().single();
+                res = await withTimeout(
+                    supabase.from('map_labels').insert(payload).select().single()
+                );
             }
 
             if (res.data) {
@@ -2947,12 +3043,21 @@ export const LabelEditorModal: React.FC<LabelEditorModalProps> = ({ labelData, o
     const handleDelete = async () => {
         if (!labelData.id) return;
         setLoading(true);
-        const { error } = await supabase.from('map_labels').delete().eq('id', labelData.id);
-        if (!error) {
-            removeLocalItem('label', labelData.id);
-            onSave();
-        } else {
-            setError({ message: "Error deleting label", details: error });
+        try {
+            await ensureFreshSession();
+            const { error } = await withTimeout(
+                supabase.from('map_labels').delete().eq('id', labelData.id)
+            );
+            if (!error) {
+                removeLocalItem('label', labelData.id);
+                onSave();
+            } else {
+                setError({ message: "Error deleting label", details: error });
+            }
+        } catch (err: any) {
+            console.error(err);
+            setError({ message: "Error deleting label", details: err });
+        } finally {
             setLoading(false);
         }
     };
@@ -3075,7 +3180,10 @@ export const ClockManagerModal: React.FC<ClockManagerModalProps> = ({ isOpen, on
         };
 
         try {
-            const { data, error } = await supabase.from('progress_clocks').insert(newClock).select().single();
+            await ensureFreshSession();
+            const { data, error } = await withTimeout(
+                supabase.from('progress_clocks').insert(newClock).select().single()
+            );
             if (error) throw error;
             if (data) {
                 updateLocalClock(data as Clock);
@@ -3092,20 +3200,36 @@ export const ClockManagerModal: React.FC<ClockManagerModalProps> = ({ isOpen, on
     };
 
     const handleUpdateClock = async (clock: Clock, newFilled: number) => {
-        const { error } = await supabase.from('progress_clocks').update({ filled: newFilled }).eq('id', clock.id);
-        if (!error) {
-            updateLocalClock({ ...clock, filled: newFilled });
-        } else {
-            setError({ message: "Error updating clock", details: error });
+        try {
+            await ensureFreshSession();
+            const { error } = await withTimeout(
+                supabase.from('progress_clocks').update({ filled: newFilled }).eq('id', clock.id)
+            );
+            if (!error) {
+                updateLocalClock({ ...clock, filled: newFilled });
+            } else {
+                setError({ message: "Error updating clock", details: error });
+            }
+        } catch (err: any) {
+            console.error(err);
+            setError({ message: "Error updating clock", details: err });
         }
     };
 
     const handleDeleteClock = async (id: string) => {
-        const { error } = await supabase.from('progress_clocks').delete().eq('id', id);
-        if (!error) {
-            removeLocalItem('clock', id);
-        } else {
-            setError({ message: "Error deleting clock", details: error });
+        try {
+            await ensureFreshSession();
+            const { error } = await withTimeout(
+                supabase.from('progress_clocks').delete().eq('id', id)
+            );
+            if (!error) {
+                removeLocalItem('clock', id);
+            } else {
+                setError({ message: "Error deleting clock", details: error });
+            }
+        } catch (err: any) {
+            console.error(err);
+            setError({ message: "Error deleting clock", details: err });
         }
     };
 
