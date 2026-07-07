@@ -1,0 +1,12 @@
+services:
+  niels-maps-app:
+    build: .
+    container_name: niels-maps-app
+    networks:
+      nielsnet:
+        ipv4_address: 172.23.0.30
+
+networks:
+  nielsnet:
+    external: true
+    name: nielsnet
